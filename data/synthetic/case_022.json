@@ -1,0 +1,36 @@
+{
+    "patient_id": "SYN-022",
+    "age": 50,
+    "gender": "F",
+    "meds": [],
+    "allergies": [],
+    "conditions": [
+        "Fatigue"
+    ],
+    "labs": [
+        {
+            "name": "TSH",
+            "value": 12.5,
+            "unit": "mIU/L",
+            "date": "2024-04-01"
+        }
+    ],
+    "vitals": {
+        "bp": "110/70",
+        "hr": 60
+    },
+    "notes": [
+        {
+            "date": "2024-04-05",
+            "author": "Dr. Primary",
+            "content": "Patient c/o fatigue. Labs reviewed. Lipid panel normal. Follow up in 1 year."
+        }
+    ],
+    "ground_truth": [
+        {
+            "category": "MISSING_WORKFLOW_STEP",
+            "severity": "MEDIUM",
+            "key": "TSH"
+        }
+    ]
+}

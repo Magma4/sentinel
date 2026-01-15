@@ -1,0 +1,33 @@
+{
+    "patient_id": "CASE-004",
+    "meds": [
+        "Lisinopril",
+        "Hydrochlorothiazide"
+    ],
+    "allergies": [],
+    "conditions": [
+        "Hypertension"
+    ],
+    "labs": [
+        {
+            "name": "Creatinine",
+            "value": 0.9,
+            "unit": "mg/dL",
+            "date": "2024-03-01"
+        },
+        {
+            "name": "Potassium",
+            "value": 4.2,
+            "unit": "mmol/L",
+            "date": "2024-03-01"
+        }
+    ],
+    "notes": [
+        {
+            "date": "2024-03-01",
+            "author": "Dr. Smith",
+            "content": "Subjective: Patient doing well on current BP meds. No complaints.\nObjective: BP 120/80. Lungs clear.\nAssessment: HTN well controlled.\nPlan: Continue current meds. Follow up 6 months."
+        }
+    ],
+    "ground_truth": []
+}

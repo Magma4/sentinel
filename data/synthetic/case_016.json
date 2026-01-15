@@ -1,0 +1,44 @@
+{
+    "patient_id": "SYN-016",
+    "age": 55,
+    "gender": "M",
+    "meds": [
+        "Lisinopril 10mg daily"
+    ],
+    "allergies": [],
+    "conditions": [
+        "Hypertension"
+    ],
+    "labs": [
+        {
+            "name": "Sodium",
+            "value": 140,
+            "unit": "mmol/L",
+            "date": "2024-03-01"
+        },
+        {
+            "name": "Potassium",
+            "value": 4.2,
+            "unit": "mmol/L",
+            "date": "2024-03-01"
+        },
+        {
+            "name": "Creatinine",
+            "value": 0.9,
+            "unit": "mg/dL",
+            "date": "2024-03-01"
+        }
+    ],
+    "vitals": {
+        "bp": "128/82",
+        "hr": 72
+    },
+    "notes": [
+        {
+            "date": "2024-03-10",
+            "author": "Dr. Smith",
+            "content": "Patient presents for BP follow-up. Tolerating Lisinopril well. No cough or angioedema. BP well controlled. Continue current therapy."
+        }
+    ],
+    "ground_truth": []
+}

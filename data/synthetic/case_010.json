@@ -1,0 +1,31 @@
+{
+  "patient_id": "CASE-010",
+  "meds": [],
+  "allergies": [],
+  "conditions": [
+    "Fatigue"
+  ],
+  "labs": [
+    {
+      "name": "TSH",
+      "value": 15.4,
+      "unit": "mIU/L",
+      "date": "2024-05-01"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2024-05-01",
+      "author": "Dr. GP",
+      "content": "Reviewing labs. TSH 15.4 (High). Lipids normal.\nPlan: Follow up in 1 year for physical."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "MISSING_WORKFLOW_STEP",
+      "severity": "HIGH",
+      "key": "TSH High",
+      "explanation": "Markedly elevated TSH (15.4) ignored; no thyroid replacement or follow-up ordered."
+    }
+  ]
+}

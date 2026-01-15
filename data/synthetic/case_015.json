@@ -1,0 +1,46 @@
+{
+  "patient_id": "CASE-015",
+  "meds": [
+    "Simvastatin",
+    "Gemfibrozil"
+  ],
+  "allergies": [],
+  "conditions": [
+    "Hyperlipidemia"
+  ],
+  "labs": [
+    {
+      "name": "ALT",
+      "value": 150,
+      "unit": "U/L",
+      "date": "2024-05-28"
+    },
+    {
+      "name": "AST",
+      "value": 140,
+      "unit": "U/L",
+      "date": "2024-05-28"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2024-05-28",
+      "author": "Dr. Lipid",
+      "content": "Follow up. ALT/AST elevated (150/140).\nPlan: Continue Simvastatin and Gemfibrozil."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "MED_LAB_CONFLICT",
+      "severity": "HIGH",
+      "key": "Statin-Fibrate Interaction",
+      "explanation": "Simvastatin + Gemfibrozil interaction risk (Rhabdo)."
+    },
+    {
+      "category": "MED_LAB_CONFLICT",
+      "severity": "HIGH",
+      "key": "Liver Injury",
+      "explanation": "Continuing hepatotoxic meds despite 3x elevation in LFTs."
+    }
+  ]
+}

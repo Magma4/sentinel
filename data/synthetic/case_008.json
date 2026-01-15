@@ -1,0 +1,28 @@
+{
+  "patient_id": "CASE-008",
+  "meds": [
+    "Bactrim"
+  ],
+  "allergies": [
+    "Sulfa Drugs"
+  ],
+  "conditions": [
+    "UTI"
+  ],
+  "labs": [],
+  "notes": [
+    {
+      "date": "2024-05-10",
+      "author": "Dr. Uro",
+      "content": "Patient presents with dysuria. Dipstick positive.\nAllergies: Sulfa (hives).\nPlan: Start Bactrim DS BID x 3 days."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "MED_LAB_CONFLICT",
+      "severity": "HIGH",
+      "key": "Sulfa",
+      "explanation": "Bactrim contains sulfa, patient has documented sulfa allergy."
+    }
+  ]
+}

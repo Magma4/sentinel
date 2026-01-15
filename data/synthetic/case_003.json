@@ -1,0 +1,26 @@
+{
+    "patient_id": "CASE-003",
+    "age": 30,
+    "gender": "Male",
+    "allergies": [
+        "Sulfa"
+    ],
+    "conditions": [
+        "Asthma"
+    ],
+    "medications": [
+        "Albuterol Inhaler"
+    ],
+    "vitals": {
+        "BP": "120/80",
+        "HR": "70",
+        "Temp": "37.0C"
+    },
+    "notes": [
+        {
+            "date": "2024-01-16",
+            "author": "Dr. Ray",
+            "content": "Routine asthma checkup. Lungs clear. Refilling inhaler."
+        }
+    ]
+}

@@ -1,0 +1,29 @@
+{
+    "patient_id": "SYN-020",
+    "age": 25,
+    "gender": "M",
+    "meds": [],
+    "allergies": [
+        "Peanuts"
+    ],
+    "conditions": [],
+    "labs": [],
+    "vitals": {
+        "bp": "120/80",
+        "hr": 70
+    },
+    "notes": [
+        {
+            "date": "2024-01-10",
+            "author": "RN Assessment",
+            "content": "Patient denies any known drug or food allergies. NKDA. No past medical history."
+        }
+    ],
+    "ground_truth": [
+        {
+            "category": "DOC_INCONSISTENCY",
+            "severity": "MEDIUM",
+            "key": "Peanuts"
+        }
+    ]
+}

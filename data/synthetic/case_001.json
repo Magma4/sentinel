@@ -1,0 +1,28 @@
+{
+    "patient_id": "CASE-001",
+    "age": 45,
+    "gender": "Male",
+    "allergies": [
+        "Penicillin",
+        "Peanuts"
+    ],
+    "conditions": [
+        "Hypertension"
+    ],
+    "medications": [
+        "Lisinopril 10mg",
+        "Amoxicillin 500mg"
+    ],
+    "vitals": {
+        "BP": "140/90",
+        "HR": "88",
+        "Temp": "38.5C"
+    },
+    "notes": [
+        {
+            "date": "2024-01-14",
+            "author": "Dr. Smith",
+            "content": "Patient presents with high fever and sore throat. Strep test positive. Starting Amoxicillin."
+        }
+    ]
+}

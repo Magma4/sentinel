@@ -1,0 +1,33 @@
+{
+  "patient_id": "CASE-011",
+  "meds": [
+    "Albuterol"
+  ],
+  "allergies": [],
+  "conditions": [
+    "Asthma"
+  ],
+  "labs": [
+    {
+      "name": "O2 Sat",
+      "value": 88,
+      "unit": "%",
+      "date": "2024-05-15"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2024-05-15",
+      "author": "Dr. Pulm",
+      "content": "Asthma check. Patient reports doing great, no shortness of breath.\nVitals: O2 Sat 88% on room air.\nPlan: Continue current management. See in 6 months."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "TEMPORAL_CONTRADICTION",
+      "severity": "HIGH",
+      "key": "Hypoxia",
+      "explanation": "Note claims patient doing well but O2 Sat is critical (88%)."
+    }
+  ]
+}

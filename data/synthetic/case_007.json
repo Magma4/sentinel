@@ -1,0 +1,28 @@
+{
+    "patient_id": "CASE-007",
+    "meds": [
+        "Ibuprofen (PRN)"
+    ],
+    "allergies": [
+        "Peanuts"
+    ],
+    "conditions": [
+        "Knee Pain"
+    ],
+    "labs": [
+        {
+            "name": "WBC",
+            "value": 6.5,
+            "unit": "k/uL",
+            "date": "2024-04-20"
+        }
+    ],
+    "notes": [
+        {
+            "date": "2024-04-20",
+            "author": "Dr. Lee",
+            "content": "Minor knee strain. Taking ibuprofen occasionally with food.\nAdvised RICE protocol.\nReturn if not improved."
+        }
+    ],
+    "ground_truth": []
+}

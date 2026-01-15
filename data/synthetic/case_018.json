@@ -1,0 +1,27 @@
+{
+    "patient_id": "SYN-018",
+    "age": 65,
+    "gender": "M",
+    "meds": [
+        "Acetaminophen 500mg PRN",
+        "Oxycodone 5mg PRN"
+    ],
+    "allergies": [],
+    "conditions": [
+        "Osteoarthritis",
+        "Post-op Knee Replacement"
+    ],
+    "labs": [],
+    "vitals": {
+        "bp": "130/85",
+        "hr": 80
+    },
+    "notes": [
+        {
+            "date": "2024-04-05",
+            "author": "Dr. Ortho",
+            "content": "2 week follow-up after TKA. Incision clean, dry, intact. Staples removed today. Pain managed well with PRN meds. PT started. Continue plan."
+        }
+    ],
+    "ground_truth": []
+}

@@ -1,0 +1,33 @@
+{
+  "patient_id": "CASE-013",
+  "meds": [
+    "Warfarin"
+  ],
+  "allergies": [],
+  "conditions": [
+    "AFib"
+  ],
+  "labs": [
+    {
+      "name": "INR",
+      "value": 5.2,
+      "unit": "",
+      "date": "2024-05-22"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2024-05-22",
+      "author": "Dr. Cardio",
+      "content": "Routine INR check. Result 5.2.\nPlan: Continue current Warfarin dose 5mg daily. Recheck 4 weeks."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "MED_LAB_CONFLICT",
+      "severity": "HIGH",
+      "key": "High INR",
+      "explanation": "Supratherapeutic INR (5.2) requires dose hold/reduction, not continuation."
+    }
+  ]
+}

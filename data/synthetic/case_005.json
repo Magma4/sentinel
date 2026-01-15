@@ -1,0 +1,28 @@
+{
+    "patient_id": "CASE-005",
+    "meds": [
+        "Levothyroxine"
+    ],
+    "allergies": [
+        "Latex"
+    ],
+    "conditions": [
+        "Hypothyroidism"
+    ],
+    "labs": [
+        {
+            "name": "TSH",
+            "value": 2.5,
+            "unit": "mIU/L",
+            "date": "2024-02-15"
+        }
+    ],
+    "notes": [
+        {
+            "date": "2024-02-15",
+            "author": "Dr. Jones",
+            "content": "Follow up for thyroid. Levels stable. Energy good.\nAllergies: Latex (rash).\nPlan: Refill Levo 50mcg. Return 1 year."
+        }
+    ],
+    "ground_truth": []
+}

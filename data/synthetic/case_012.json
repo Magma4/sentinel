@@ -1,0 +1,22 @@
+{
+  "patient_id": "CASE-012",
+  "meds": [],
+  "allergies": [],
+  "conditions": [],
+  "labs": [],
+  "notes": [
+    {
+      "date": "2024-05-20",
+      "author": "Dr. Surg",
+      "content": "Procedure Note: Right Knee Injection.\nSite: Left knee prepped and draped.\nInjected 40mg Kenalog into joint space."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "DOC_INCONSISTENCY",
+      "severity": "MEDIUM",
+      "key": "Laterality",
+      "explanation": "Procedure title says Right Knee but body describes Left Knee prep."
+    }
+  ]
+}

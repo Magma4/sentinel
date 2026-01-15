@@ -1,0 +1,38 @@
+{
+    "patient_id": "SYN-017",
+    "age": 32,
+    "gender": "F",
+    "meds": [],
+    "allergies": [
+        "Latex"
+    ],
+    "conditions": [
+        "None"
+    ],
+    "labs": [
+        {
+            "name": "Hemoglobin",
+            "value": 13.5,
+            "unit": "g/dL",
+            "date": "2024-02-15"
+        },
+        {
+            "name": "TSH",
+            "value": 2.1,
+            "unit": "mIU/L",
+            "date": "2024-02-15"
+        }
+    ],
+    "vitals": {
+        "bp": "118/74",
+        "hr": 68
+    },
+    "notes": [
+        {
+            "date": "2024-02-20",
+            "author": "Dr. Jones",
+            "content": "Annual physical exam. No complaints. Active lifestyle. Latex allergy noted, no exposure. Labs within normal limits."
+        }
+    ],
+    "ground_truth": []
+}

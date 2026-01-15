@@ -1,0 +1,35 @@
+{
+  "patient_id": "CASE-014",
+  "meds": [
+    "Aspirin",
+    "Ibuprofen"
+  ],
+  "allergies": [
+    "Aspirin"
+  ],
+  "conditions": [
+    "Arthritis"
+  ],
+  "labs": [],
+  "notes": [
+    {
+      "date": "2024-05-25",
+      "author": "Dr. Rheum",
+      "content": "Pain management. Taking Ibuprofen OTC.\nAllergies: Aspirin (Anaphylaxis).\nPlan: Start Aspirin 81mg for heart health."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "MED_LAB_CONFLICT",
+      "severity": "HIGH",
+      "key": "Aspirin Allergy",
+      "explanation": "Prescribing Aspirin despite anaphylactic allergy."
+    },
+    {
+      "category": "MED_LAB_CONFLICT",
+      "severity": "MEDIUM",
+      "key": "Duplicate NSAID",
+      "explanation": "Aspirin + Ibuprofen significantly increases bleed risk."
+    }
+  ]
+}

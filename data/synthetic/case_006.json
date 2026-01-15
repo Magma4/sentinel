@@ -1,0 +1,19 @@
+{
+    "patient_id": "CASE-006",
+    "meds": [
+        "Sertraline"
+    ],
+    "allergies": [],
+    "conditions": [
+        "Anxiety"
+    ],
+    "labs": [],
+    "notes": [
+        {
+            "date": "2024-01-10",
+            "author": "Dr. Doe",
+            "content": "MH Intake. Reports reduced anxiety with Sertraline. No side effects.\nExam: Mental status normal.\nPlan: Continue same dose."
+        }
+    ],
+    "ground_truth": []
+}

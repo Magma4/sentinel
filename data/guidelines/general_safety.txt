@@ -1,0 +1,27 @@
+[Renal/Metformin]
+IF patient is on Metformin AND (Creatinine > 1.4 OR eGFR < 30 OR "renal failure" is mentioned):
+  RISK: Lactic Acidosis.
+  REVIEW: Verify Metformin contraindications.
+
+[Hyperkalemia]
+IF Potassium (K) > 5.0:
+  RISK: Hyperkalemia.
+  REVIEW: Check for ACE inhibitors, ARBs, or Spironolactone.
+IF Potassium (K) > 5.5:
+  RISK: Critical Hyperkalemia.
+  REVIEW: Immediate clinical review required.
+
+[Bradycardia/Beta-Blockers]
+IF Heart Rate < 60 AND patient is on Beta-Blocker (Metoprolol, Atenolol, Carvedilol):
+  RISK: Symptomatic Bradycardia.
+  REVIEW: Assess for dizziness/syncope.
+
+[Bleeding Risk]
+IF patient is on Warfarin/Eliquis/Xarelto AND (INR > 3.0 OR "bleeding" mentioned):
+  RISK: Hemorrhage.
+  REVIEW: Verify dosing and INR targets.
+
+[Antibiotics/Allergy]
+IF patient has Penicillin Allergy AND prescribed (Penicillin, Amoxicillin, Ampicillin, Augmentin):
+  RISK: Anaphylaxis.
+  REVIEW: Verify allergy history and reaction severity.

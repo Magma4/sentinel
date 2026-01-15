@@ -1,0 +1,27 @@
+{
+  "patient_id": "CASE-009",
+  "meds": [
+    "Ibuprofen",
+    "Naproxen"
+  ],
+  "allergies": [],
+  "conditions": [
+    "Back Pain"
+  ],
+  "labs": [],
+  "notes": [
+    {
+      "date": "2024-05-12",
+      "author": "Dr. Ortho",
+      "content": "Chronic low back pain.\nCurrent Meds: Ibuprofen 800mg TID.\nPlan: Adding Naproxen 500mg BID for breakthrough pain."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "MED_LAB_CONFLICT",
+      "severity": "MEDIUM",
+      "key": "Duplicate NSAID",
+      "explanation": "Concurrent use of Ibuprofen and Naproxen increases GI bleed risk."
+    }
+  ]
+}

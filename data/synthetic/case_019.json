@@ -1,0 +1,45 @@
+{
+    "patient_id": "SYN-019",
+    "age": 60,
+    "gender": "F",
+    "meds": [
+        "Lisinopril 20mg daily",
+        "Losartan 50mg daily"
+    ],
+    "allergies": [],
+    "conditions": [
+        "Hypertension"
+    ],
+    "labs": [
+        {
+            "name": "Potassium",
+            "value": 5.2,
+            "unit": "mmol/L",
+            "date": "2024-03-15"
+        },
+        {
+            "name": "Creatinine",
+            "value": 1.1,
+            "unit": "mg/dL",
+            "date": "2024-03-15"
+        }
+    ],
+    "vitals": {
+        "bp": "140/90",
+        "hr": 78
+    },
+    "notes": [
+        {
+            "date": "2024-03-20",
+            "author": "Dr. Cardio",
+            "content": "Patient on Lisinopril. BP remains elevated. Adding Losartan to regimen to improve control. Monitor K+."
+        }
+    ],
+    "ground_truth": [
+        {
+            "category": "MED_LAB_CONFLICT",
+            "severity": "HIGH",
+            "key": "Duplicate Therapy"
+        }
+    ]
+}

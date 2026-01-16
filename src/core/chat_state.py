@@ -37,12 +37,11 @@ class ChatSession:
     context: Optional[AuditContext] = None
 
 def fingerprint_audit(audit_json: Dict) -> str:
-    """Creates a unique hash for the current audit to detect staleness."""
-    # Hash input text + audit summary
+    """Hashes audit content to detect staleness."""
     return hashlib.md5(str(audit_json).encode()).hexdigest()
 
 def reset_session_for_new_audit(session: ChatSession, fingerprint: str, audit_data: Dict, input_summary: str) -> ChatSession:
-    """Resets chat history if the audit content changes."""
+    """Clears history if the underlying audit context changes."""
     if session.audit_fingerprint != fingerprint:
         session = ChatSession()
         session.audit_fingerprint = fingerprint
@@ -52,7 +51,6 @@ def reset_session_for_new_audit(session: ChatSession, fingerprint: str, audit_da
         flags = audit_data.get("flags", [])
         evidence_idx = {}
         for i, f in enumerate(flags):
-            # Create a simple ID for referencing
             fid = f"flag_{i}"
             ev_quotes = [e.get("quote", "") for e in f.get("evidence", [])]
             evidence_idx[fid] = " | ".join(ev_quotes)
@@ -67,12 +65,10 @@ def reset_session_for_new_audit(session: ChatSession, fingerprint: str, audit_da
     return session
 
 def classify_query(user_text: str) -> Dict[str, Any]:
-    """
-    Guardrail: Determines if a user query is allowed or disallowed (diagnostic).
-    """
+    """Safety Guardrail: Rejects diagnostic or treatment queries."""
     text = user_text.lower()
 
-    # DISALLOWED INTENTS (Diagnosis, Treatment, Interpretation)
+    # DISALLOWED INTENTS
     disallowed_keywords = [
         "diagnose", "diagnosis", "cancer", "tumor", "fracture", "broken",
         "treatment", "prescribe", "dosage", "dose", "medication", "medicine",
@@ -80,11 +76,10 @@ def classify_query(user_text: str) -> Dict[str, Any]:
         "what do i have", "am i sick"
     ]
 
-    # Check for direct treatment questions
     if any(k in text for k in disallowed_keywords):
         # Exception: "Why was this flag raised?" might contain "medication"
         if "why" in text or "explain" in text or "flag" in text:
-            pass # Likely safe clarification
+            pass # Likely safe
         else:
             return {
                 "allowed": False,
@@ -96,10 +91,7 @@ def classify_query(user_text: str) -> Dict[str, Any]:
 
 
 def build_chat_prompt(context: AuditContext, history: List[ChatMessage], user_text: str) -> str:
-    """
-    Constructs the system prompt + history for the LLM.
-    STRICTLY GROUNDED in the audit context.
-    """
+    """Constructs the system prompt, strictly grounding the LLM in the audit findings."""
 
     # Summarize flags for context
     flags_desc = []
@@ -134,7 +126,6 @@ Answer concisely (3-4 sentences max). Use bullet points if listing evidence.
     return system_prompt.strip()
 
 def postprocess_answer(text: str) -> str:
-    """Clean up LLM output."""
-    # Remove any hallucinated starting tags
+    """Removes artifacts from LLM response."""
     clean = text.replace("Assistant:", "").strip()
     return clean

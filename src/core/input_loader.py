@@ -17,11 +17,7 @@ except ImportError:
     pytesseract = None
 
 def parse_csv_labs(csv_content: Union[str, bytes]) -> str:
-    """
-    Parses a CSV string/bytes of lab results into a standardized text format.
-    Expected columns (case-insensitive): 'test'/'name', 'value'/'result', 'unit', 'date'.
-    Falls back to raw text if parsing fails or structure is unrecognized.
-    """
+    """Parses standard lab CSVs (test/value columns) into text."""
     try:
         if isinstance(csv_content, bytes):
             # Try decoding as utf-8
@@ -69,7 +65,7 @@ def parse_csv_labs(csv_content: Union[str, bytes]) -> str:
         return str(csv_content)
 
 def parse_image_text(file_obj) -> str:
-    """extracts text from an image using pytesseract (OCR)."""
+    """Extracts text from images via Tesseract OCR."""
     if not Image:
         return "[Error: PIL/Pillow not installed.]"
     if not pytesseract:
@@ -79,7 +75,6 @@ def parse_image_text(file_obj) -> str:
         if hasattr(file_obj, "seek"): file_obj.seek(0)
         img = Image.open(file_obj)
 
-        # Check system tesseract presence primarily by trying to run it
         try:
              text = pytesseract.image_to_string(img)
              return text if text.strip() else "[Warning: OCR found no text.]"
@@ -97,11 +92,7 @@ def standardize_input(
     labs_input: Union[str, Any, List[Any]],
     meds_input: Union[str, Any, List[Any]]
 ) -> Dict[str, str]:
-    """
-    Standardizes inputs from different modes into a single dictionary
-    mapping: 'note_text', 'labs_text', 'meds_text', 'case_id'.
-    Handles single input or list of inputs (multi-file).
-    """
+    """Normalizes various input formats (Strings, Lists, Files) into a standard dictionary text block."""
 
     result = {
         "case_id": "USER_INPUT",
@@ -152,7 +143,7 @@ def standardize_input(
         else:
             content = str(inp)
 
-        return content.strip() # Enforce strip() on all returned content to fix alignment issues
+        return content.strip()
 
     # Wrapper to handle Single Item vs List
     def process_input(inp_data) -> str:
@@ -161,7 +152,6 @@ def standardize_input(
 
 
         # Robust check for any iterable (list, tuple, custom sequence)
-        # Must exclude str/bytes/dict (though dict is iterable, we usually don't want to unpack it as files here)
         is_list_like = isinstance(inp_data, (list, tuple))
         if not is_list_like and hasattr(inp_data, "__iter__") and not isinstance(inp_data, (str, bytes, dict)):
             is_list_like = True
@@ -181,7 +171,6 @@ def standardize_input(
             return read_single_item(inp_data)
 
     # 1. Processing Logic
-
     result["note_text"] = process_input(note_input)
     result["labs_text"] = process_input(labs_input)
     result["meds_text"] = process_input(meds_input)

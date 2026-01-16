@@ -11,25 +11,19 @@ RESULTS_FILE = "results.json"
 SUMMARY_FILE = "results.md"
 
 def match_flag_to_ground_truth(flag: SafetyFlag, ground_truth: List[GroundTruthItem]) -> GroundTruthItem | None:
-    """
-    Matches a detected flag to a ground truth item.
-    Rules:
-    1. Category must match.
-    2. Explanation must contain the Ground Truth 'key' (case-insensitive substring).
-    """
+    """Matches a flag to a ground truth item via category and key concept overlap."""
     for gt in ground_truth:
         if flag.category.value != gt.category:
             continue
 
-        # Semantic check: Is the specific medical concept (key) present in the finding?
-        # e.g. key="Metformin" in explanation "Contraindicated Metformin use..."
+        # Check if concept key is present in explanation
         if gt.key.lower() in flag.explanation.lower():
             return gt
 
     return None
 
 def generate_markdown_report(results: Dict):
-    """Generates a markdown summary of the evaluation results."""
+    """Generates a summary markdown report from evaluation results."""
     summary = results["summary"]
     md = "# SentinelMD Evals\n\n"
     md += f"**Cases**: {summary['total_cases']} | **Avg Runtime**: {summary['avg_runtime_sec']}s\n\n"
@@ -52,13 +46,10 @@ def generate_markdown_report(results: Dict):
         f.write(md)
 
 def run_eval_pipeline():
-    """
-    Runs the full extraction -> audit pipeline against all synthetic cases.
-    """
+    """Runs extraction-audit pipeline against synthetic test cases."""
     data_dir = "data/synthetic"
 
-    # Initialize Pipeline Components (Mock Mode by default)
-    # To test LLM, one would pass backend_url here, but let's default to Mock for automated CI/eval.
+    # Default to Mock backend for CI/Eval consistency
     extractor = FactExtractor()
     auditor = SafetyAuditor()
 
@@ -88,20 +79,15 @@ def run_eval_pipeline():
         record = PatientRecord(**data)
         ground_truth = record.ground_truth
 
-        # 1. Prepare Raw Inputs
+        # 1. Prepare Inputs
         note_text = "\n".join([n.content for n in record.notes])
         labs_text = "\n".join([f"{l.name}: {l.value} {l.unit}" for l in record.labs])
         meds_text = ", ".join(record.medications)
 
-        # 2. Execute Pipeline & Measure Time
+        # 2. Execute Pipeline
         start_time = time.time()
-
-        # Step A: Extract
         extracted_facts = extractor.extract_facts(note_text, labs_text, meds_text)
-
-        # Step B: Audit
         report = auditor.run_audit(extracted_facts, note_text, labs_text, meds_text)
-
         duration = time.time() - start_time
         total_runtime += duration
 
@@ -112,7 +98,6 @@ def run_eval_pipeline():
         matched_gt_items = []
         matched_flag_indices = set()
 
-        # Check TPs and FPs
         for i, flag in enumerate(report.flags):
             match = match_flag_to_ground_truth(flag, ground_truth)
             if match:
@@ -122,21 +107,7 @@ def run_eval_pipeline():
             else:
                 fp_count += 1
 
-        # Check FNs (Ground Truths not matched)
-        # Note: A single flag might match multiple GTs if ambiguous, but here we scan flags.
-        # Better: Scan GTs to see coverage?
-        # Current logic: One flag = one finding. If one flag covers a GT, that GT is found.
-        # If we have duplicate flags for same GT, simplest is count unique matched GTs.
-        unique_matched_gt_ids = set([id(m) for m in matched_gt_items]) # simplistic unique check
-        fn_count = len(ground_truth) - len(unique_matched_gt_ids)
-
-        # Re-calc TP based on unique discovered risk (to avoid gaming by duplicate flags)
-        # Actually, let's keep it simple: TP = number of flags that are valid hits.
-        # But for F1, we usually want Recall vs GT.
-        # Recall = (Unique GT Found) / (Total GT)
-        # Precision = (Valid Flags) / (Total Flags)
-
-        # Let's align counts strictly
+        # Count Unique GT matches
         unique_matched_gts = []
         seen_gt_ids = set()
         for m in matched_gt_items:
@@ -145,20 +116,16 @@ def run_eval_pipeline():
                 unique_matched_gts.append(m)
 
         case_tp = len(unique_matched_gts)
-        case_fp = fp_count # Flags that matched nothing
+        case_fp = fp_count
         case_fn = len(ground_truth) - case_tp
 
         precision, recall, f1 = precision_recall_f1(case_tp, case_fp, case_fn)
         w_recall = severity_weighted_recall(unique_matched_gts, ground_truth)
 
-        # New Metrics
         from src.eval.metrics import high_severity_recall
         h_recall = high_severity_recall(unique_matched_gts, ground_truth)
 
-        # False Positive Rate (per case) => Here approximated as False Discovery Rate (FP / (TP+FP))?
-        # Or just raw FP count? User asked for "False Positive Rate per case".
-        # Let's provide "False Discovery Rate" (1 - Precision) as a rate [0-1].
-        # If no flags, FDR is 0.
+        # False Discovery Rate
         denom = (case_tp + case_fp)
         fdr = case_fp / denom if denom > 0 else 0.0
 
@@ -177,7 +144,6 @@ def run_eval_pipeline():
         total_grounding_rate_sum += case_grounding
         valid_cases_count += 1
 
-        # Accumulate new metrics
         if "total_h_recall_sum" not in locals(): total_h_recall_sum = 0.0
         total_h_recall_sum += h_recall
 
@@ -213,8 +179,6 @@ def run_eval_pipeline():
         macro_h_recall = total_h_recall_sum / valid_cases_count
         macro_fdr = total_fdr_sum / valid_cases_count
 
-        # Micro-averaged F1 (across all items) or Macro?
-        # Requirement was simple, let's provide dataset-wide metrics based on total counts
         dataset_precision, dataset_recall, dataset_f1 = precision_recall_f1(total_tp, total_fp, total_fn)
     else:
         avg_runtime = 0

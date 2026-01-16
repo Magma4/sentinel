@@ -7,10 +7,7 @@ except ImportError:
     pypdf = None
 
 def extract_pdf_text(file_obj) -> str:
-    """
-    Parses text from a PDF file object using pypdf.
-    Returns empty string on failure or if no text found.
-    """
+    """Parses text from a PDF file using pypdf."""
     if not pypdf:
         return "[Error: pypdf library not installed. Cannot process PDF.]"
 
@@ -32,24 +29,19 @@ def extract_pdf_text(file_obj) -> str:
         return f"[Error parsing PDF: {str(e)}]"
 
 def analyze_pdf_quality(text: str) -> Dict[str, Any]:
-    """
-    Analyzes extracted text for quality indicators.
-    Returns a dict with metrics and a 'suspicious' flag.
-    """
+    """Analyzes text quality (length, garbage characters) to flag extraction issues."""
     # 1. Basic Stats
     clean_text = text.strip()
     char_count = len(clean_text)
 
-    # 2. Heuristics for "Garbage" (e.g. encoding errors producing high non-ascii)
+    # 2. Garbage Heuristics (Non-ASCII count)
     non_ascii_count = sum(1 for c in clean_text if ord(c) > 127)
     non_ascii_ratio = non_ascii_count / char_count if char_count > 0 else 0
 
-    # 3. Heuristics for "Empty/Sparse"
-    # Clinical notes should rely heavily on standard alphanumeric + punctuation
-    # Suspicious if > 30% non-ascii (arbitrary threshold for "garbage")
+    # 3. Suspicious Threshold (>30% non-standard chars)
     is_garbage = non_ascii_ratio > 0.3
 
-    # 4. Determine Warnings
+    # 4. Warnings
     warnings = []
 
     if char_count < 100:

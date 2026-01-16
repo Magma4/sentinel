@@ -1,6 +1,5 @@
 """
 Simple rule-based fact extraction for One-Call Demo Mode.
-Extracts minimal facts using regex/pattern matching instead of LLM.
 """
 import re
 from typing import Dict, Any, List

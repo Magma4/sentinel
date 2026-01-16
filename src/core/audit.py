@@ -11,9 +11,7 @@ from .gating import gate_safety_flags, calibrate_confidence
 from .preprocess import trim_note, trim_labs, trim_meds
 
 class SafetyAuditor:
-    """
-    Audits patient records using MedGemma (via Local LLM) or a rule-based Mock.
-    """
+    """Core auditing engine using MedGemma or Rule-based Mock."""
 
     def __init__(self, backend_url: Optional[str] = None, backend_type: str = "mock"):
         self.backend_url = backend_url
@@ -39,12 +37,11 @@ class SafetyAuditor:
             return "Error: Prompt file not found."
 
     def run_audit(self, facts_json: Dict, note: str, labs: str, meds: str, llm_options: Optional[Dict[str, Any]] = None) -> SafetyReport:
-        """
-        """
+        """Executes the full safety audit pipeline."""
         import time
         start_time = time.time()
 
-        # 1. Prepare Inputs (apply trimming for model context)
+        # 1. Trimming
         trimmed_note = trim_note(note)
         trimmed_labs = trim_labs(labs)
         trimmed_meds = trim_meds(meds)
@@ -56,14 +53,13 @@ class SafetyAuditor:
             "meds": trimmed_meds
         }
 
-        # 2. Call Backend (original text used for evidence inference)
+        # 2. Inference
         raw_response = {}
         if self.backend_type == "mock":
             raw_response = self._mock_audit(note, labs, meds)
         else:
-            # RAG-Lite: Fetch relevant guidelines (use original for keyword matching)
+            # RAG-Lite: Fetch guidelines
             guidelines = self._get_relevant_guidelines(note, labs, meds)
-
             input_vars["guidelines"] = guidelines
 
             try:
@@ -73,37 +69,32 @@ class SafetyAuditor:
                         "num_predict": 420,
                         "temperature": 0.0
                     }
-                # Run Main Audit
                 raw_response = self.client.generate_json(self.prompt_template, input_vars, llm_options)
             except Exception as e:
                 return SafetyReport(
                     patient_id="ERROR",
-                    summary=f"LLM Generation Error: {str(e)}",
+                    summary=f"LLM Error: {str(e)}",
                     flags=[],
                     metadata={"error": str(e)}
                 )
 
-        # 3. Parse & Validate
+        # 3. Post-Processing
         try:
             if "flags" not in raw_response:
                 raw_response["flags"] = []
 
-            # 3.1 Repair Evidence Format (Upcast Strings to Objects)
+            # 3.1 Repair Evidence
             self._repair_evidence(raw_response["flags"], note, labs, meds)
 
-            # Create preliminary report
-            # Capture total time
+            # Metadata
             duration = time.time() - start_time
             self.model_metadata["audit_runtime"] = duration
-
-            # Capture Chain of Thought / Analysis Steps
             self.model_metadata["analysis_trace"] = {
                 "step_1": raw_response.get("analysis_step_1_allergies", []),
                 "step_2": raw_response.get("analysis_step_2_meds", []),
                 "step_3": raw_response.get("analysis_step_3_conflicts", "No analysis provided.")
             }
 
-            # Incorporate extraction time if present
             if "_metadata" in facts_json:
                 self.model_metadata["extract_runtime"] = facts_json["_metadata"].get("execution_time", 0)
 
@@ -115,20 +106,17 @@ class SafetyAuditor:
                 metadata=self.model_metadata
             )
 
-            # 3.2 Guardrails: Validate the report
-            # This raises ValueError if the report violates safety policies
+            # 3.2 Guardrails & Calibration
             report = validate_report_guardrails(report)
-
-            # 3.2.1 Confidence Calibration
             report = calibrate_confidence(report)
 
-            # 3.3 Safety Gate: Filter low-quality flags
+            # 3.3 Safety Gating
             report = gate_safety_flags(report)
 
             return report
 
         except ValueError as e:
-             # Guardrail Violation: Return a "Safe" Error Report so UI shows the block
+             # Guardrail Block
              err_meta = self.model_metadata.copy()
              err_meta["error"] = f"Guardrail Blocked: {str(e)}"
              return SafetyReport(
@@ -146,28 +134,17 @@ class SafetyAuditor:
             )
 
     def _get_relevant_guidelines(self, note: str, labs: str, meds: str) -> str:
-        """
-        Simple keyword-based retrieval of safety guidelines.
-        """
+        """Retrieves keyword-matched safety guidelines from local knowledge base."""
         try:
             with open("data/guidelines/general_safety.txt", "r") as f:
                 content = f.read()
 
-            # Split into blocks
             blocks = content.split("\n\n")
             relevant = []
-
             combined_text = (note + " " + labs + " " + meds).lower()
 
             for block in blocks:
-                # Simple heuristic: if any keyword from the header or body matches
-                # Ideally, we map specific keywords to blocks.
-                # For now, let's just dump all of them if the file is small (< 10 rules).
-                # But to demonstrate RAG, let's do soft filtering:
-
-                # If block mentions "Metformin" and text has "Metformin", keep it.
-                # If block mentions "Potassium" and text has "Potassium" or "K", keep it.
-
+                # Soft RAG Heuristics
                 if "metformin" in block.lower() and "metformin" in combined_text:
                     relevant.append(block)
                 elif "potassium" in block.lower() and ("potassium" in combined_text or " k " in combined_text):
@@ -186,10 +163,7 @@ class SafetyAuditor:
             return "Guidelines unavailable."
 
     def _repair_evidence(self, flags: List[Dict], note: str, labs: str, meds: str):
-        """
-        Fixes evidence format issues commonly caused by smaller LLMs.
-        Converts ['Quote String'] -> [{'quote': 'Quote String', 'source': '...'}]
-        """
+        """Standardizes evidence structure and attempts to verify source."""
         for f in flags:
             ev_list = f.get("evidence", [])
             if not isinstance(ev_list, list):
@@ -208,15 +182,13 @@ class SafetyAuditor:
                     source = item.get("source", "UNKNOWN")
 
                 if quote:
-                     # infer_evidence_source checks if the quote is actually in the text
-                     # We trust this ground-truth over the LLM's 'source' field (which might be hallucinated)
+                     # Verify Source
                      verified_source = self._infer_evidence_source(quote, note, labs, meds)
                      source = verified_source
 
-                     # Auto-highlight numbers if not present
+                     # Auto-Highlight Numbers
                      import re
                      highlighted = quote
-                     # Highlight style: Yellow background for high visibility
                      numeric_pattern = r'\b\d+(\.\d+)?(/ \d+)?\b'
                      def repl(match):
                          return f"<span style='background-color: #fff3cd; color: #856404; padding: 0 2px; border-radius: 2px;'>{match.group(0)}</span>"
@@ -231,34 +203,27 @@ class SafetyAuditor:
             f["evidence"] = repaired_ev
 
     def _infer_evidence_source(self, quote: str, note: str, labs: str, meds: str) -> str:
-        """
-        Helper to guess where a quote came from (Note, Labs, or Meds).
-        Uses token overlap for robustness against minor LLM modifications.
-        """
+        """Guesses evidence source (NOTE/LABS/MEDS) via exact match or token overlap."""
         def get_best_source(q_tokens: set) -> str:
-            # Score each source by overlap
             scores = {
                 "NOTE": len(q_tokens.intersection(set(note.lower().split()))),
                 "LABS": len(q_tokens.intersection(set(labs.lower().split()))),
                 "MEDS": len(q_tokens.intersection(set(meds.lower().split())))
             }
             best = max(scores, key=scores.get)
-            if scores[best] > 0: # At least one word match
+            if scores[best] > 0:
                 return best
             return "UNKNOWN"
 
         q_lower = quote.lower()
 
-        # 1. Exact Match (Best)
+        # 1. Exact Match
         if q_lower in note.lower(): return "NOTE"
         if q_lower in labs.lower(): return "LABS"
         if q_lower in meds.lower(): return "MEDS"
 
-        # 2. Token Overlap (Fallback)
-        # Remove common stop words to avoid matching "is", "a", etc.
+        # 2. Token Overlap
         stops = {"patient", "has", "is", "a", "the", "with", "allergy", "hives"}
-        # Note: "allergy" is common but also a keyword. Let's be careful.
-        # Actually "allergy" is often in the note summary or allergy list.
         tokens = set(q_lower.replace(":","").replace(".","").split()) - stops
 
         if tokens:
@@ -268,19 +233,13 @@ class SafetyAuditor:
 
 
     def _mock_audit(self, note: str, labs: str, meds: str) -> Dict[str, Any]:
-        """
-        Rule-based Mock for offline testing.
-        Uses src.core.evidence helpers for strict grounding.
-        """
+        """Offline Rule-based Mock for demo scenarios."""
         flags = []
         from .evidence import find_verbatim_quote, build_evidence
 
         # Rule 1: Penicillin (Scenario 3)
-        # Check NOTE for "penicillin" AND ("allergy" OR "hives")
-        # Check MEDS for "amoxicillin"
         pen_quote = find_verbatim_quote(note, ["penicillin"])
         amox_quote = find_verbatim_quote(meds, ["amoxicillin"])
-
         is_allergy = "allergy" in note.lower() or "hives" in note.lower()
 
         if pen_quote and amox_quote and is_allergy:
@@ -297,7 +256,6 @@ class SafetyAuditor:
             })
 
         # Rule 2: Hyperkalemia (Scenario 2)
-        # Check LABS for "Potassium" and "6.1"
         uk_quote = find_verbatim_quote(labs, ["Potassium", "6.1"])
         if uk_quote:
              flags.append({
@@ -312,8 +270,6 @@ class SafetyAuditor:
             })
 
         # Rule 3: Metformin/Renal (Scenario 1)
-        # Check LABS for "Creatinine" and "1.7"
-        # Check MEDS for "Metformin"
         creat_quote = find_verbatim_quote(labs, ["Creatinine", "1.7"])
         met_quote = find_verbatim_quote(meds, ["Metformin"])
 

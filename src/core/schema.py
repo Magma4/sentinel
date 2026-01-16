@@ -64,7 +64,7 @@ class PatientRecord(BaseModel):
 
 class Evidence(BaseModel):
     quote: str = Field(..., max_length=160, description="Verbatim substring from source text.")
-    highlighted_text: Optional[str] = Field(None, description="HTML-safe string with key values emphasized (e.g. <b>5.9</b>).")
+    highlighted_text: Optional[str] = Field(None, description="HTML-safe string with key values emphasized.")
     source: Optional[str] = "UNKNOWN"
     source_date: Optional[str] = None
     page_number: Optional[int] = None
@@ -73,11 +73,7 @@ class Evidence(BaseModel):
     @classmethod
     def validate_quote_length(cls, v: str) -> str:
         if len(v) > 160:
-            # We could truncate, but rigorous safety audit implies precise evidence.
-            # Ideally the LLM is instructed to be concise.
-            # For now, let's truncate with ellipse if it's too long, or raise Error?
-            # User requirement: "Enforce evidence quote rules: Each quote must be <=160 characters"
-            # Let's truncate to enforce compliance rather than crashing the pipeline.
+            # Enforce conciseness
             return v[:157] + "..."
         return v
 
@@ -88,7 +84,7 @@ class SafetyFlag(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     evidence: List[Evidence] = Field(..., min_length=1)
     explanation: str
-    reasoning: Optional[str] = Field(None, description="Detailed situation analysis for breakdown.")
+    reasoning: Optional[str] = Field(None, description="Detailed situation analysis.")
     recommendation: Optional[str] = Field(None, description="Advisory only.", validation_alias="review_guidance")
 
     @field_validator('explanation', 'recommendation')

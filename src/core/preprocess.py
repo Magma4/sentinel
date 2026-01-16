@@ -1,15 +1,11 @@
 """
-Lightweight text preprocessing to reduce prompt size before LLM calls.
-Trimming is for context compression only - original text is preserved for evidence extraction.
+Lightweight text preprocessing for prompt context optimization.
 """
 from typing import List
 
 
 def trim_note(note: str) -> str:
-    """
-    Keeps only lines containing key clinical keywords plus surrounding context.
-    Returns trimmed note for model context.
-    """
+    """Retains only clinical keywords + context (3 lines before/after) to save tokens."""
     if not note:
         return note
 
@@ -22,28 +18,23 @@ def trim_note(note: str) -> str:
     lines = note.split('\n')
     kept_indices = set()
 
-    # Find matching lines
     for i, line in enumerate(lines):
         line_lower = line.lower()
         if any(kw in line_lower for kw in keywords):
-            # Keep this line plus 3 lines before and after
+            # Keep context window
             for j in range(max(0, i - 3), min(len(lines), i + 4)):
                 kept_indices.add(j)
 
     if not kept_indices:
-        # If no matches, keep first 10 lines as fallback
+        # Fallback: Head of note
         return '\n'.join(lines[:10])
 
-    # Reconstruct note with kept lines
     kept_lines = [lines[i] for i in sorted(kept_indices)]
     return '\n'.join(kept_lines)
 
 
 def trim_labs(labs: str) -> str:
-    """
-    Keeps only lines containing key lab names.
-    Returns trimmed labs for model context.
-    """
+    """Filters lab report to high-priority safety analytes only."""
     if not labs:
         return labs
 
@@ -64,10 +55,7 @@ def trim_labs(labs: str) -> str:
 
 
 def trim_meds(meds: str) -> str:
-    """
-    Removes empty lines from medications list.
-    Returns cleaned meds for model context.
-    """
+    """Normalizes medication list by removing empty lines."""
     if not meds:
         return meds
 

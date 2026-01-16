@@ -5,40 +5,26 @@ from typing import Dict, Any, Optional, List
 
 
 def repair_json(raw_json: str) -> str:
-    """
-    Repairs common JSON formatting errors from LLM outputs.
-    - Fixes missing colons: "key","value" -> "key": "value"
-    - Removes trailing commas: {...,} -> {...}
-    - Fixes missing commas between properties
-    """
+    """Repairs malformed JSON common in LLM outputs (missing colons, trailing commas)."""
     if not raw_json:
         return raw_json
 
-    # Fix: "property_name","value" -> "property_name": "value"
-    # This handles the specific error seen: "analysis_step_1_allergies","UNKNOWN"
+    # "key","value" -> "key": "value"
     repaired = re.sub(r'"([^"]+)"\s*,\s*"([^"]+)"(\s*[,}])', r'"\1": "\2"\3', raw_json)
 
-    # Fix: "property_name",[...] -> "property_name": [...]
+    # "key",[...] -> "key": [...]
     repaired = re.sub(r'"([^"]+)"\s*,\s*(\[)', r'"\1": \2', repaired)
 
-    # Remove trailing commas before closing braces/brackets
+    # Remove trailing commas
     repaired = re.sub(r',(\s*[}\]])', r'\1', repaired)
 
     return repaired
 
 
 class LocalLLMClient:
-    """
-    A simple client for interacting with local LLMs (Ollama) or a Mock backend.
-    Enforces JSON outputs.
-    """
+    """Interacts with local LLMs (Ollama) or Mock backend, enforcing strict JSON output."""
+
     def __init__(self, backend: str, model: str, host: Optional[str] = None):
-        """
-        Initialize the client.
-        :param backend: "mock" or "ollama"
-        :param model: Model name (e.g. "medgemma")
-        :param host: URL for Ollama (default: http://localhost:11434)
-        """
         self.backend = backend.lower()
         self.model = model
         self.host = host or "http://localhost:11434"
@@ -47,20 +33,14 @@ class LocalLLMClient:
             raise ValueError(f"Unsupported backend: {backend}. Use 'mock' or 'ollama'.")
 
     def generate_json(self, prompt: str, input_vars: Dict[str, Any], llm_options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Generates JSON output from the LLM.
-        :param prompt: The prompt template string
-        :param input_vars: Dictionary of variables to format into the prompt
-        :param llm_options: Optional dict of Ollama options to override defaults
-        :return: Parsed JSON dictionary
-        """
-        # 1. format prompt
+        """Generates validated JSON from the LLM based on input variables."""
+        # 1. Format
         try:
             formatted_prompt = prompt.format(**input_vars)
         except KeyError as e:
             raise ValueError(f"Missing input variable for prompt: {e}")
 
-        # 2. Call backend
+        # 2. Execute
         if self.backend == "mock":
             return self._call_mock(formatted_prompt)
         elif self.backend == "ollama":
@@ -69,12 +49,7 @@ class LocalLLMClient:
         return {}
 
     def generate_text(self, prompt: str, llm_options: Optional[Dict[str, Any]] = None) -> str:
-        """
-        Generates plain text output from the LLM.
-        :param prompt: The full prompt string
-        :param llm_options: Optional dict of Ollama options
-        :return: Generated string
-        """
+        """Generates raw text output from the LLM."""
         if self.backend == "mock":
              return "This is a mock chat response."
         elif self.backend == "ollama":
@@ -83,7 +58,6 @@ class LocalLLMClient:
 
     def _call_mock(self, prompt: str) -> Dict[str, Any]:
         """Returns deterministic canned outputs for testing."""
-        # Simple canned response structure
         return {
             "mock_response": True,
             "note": "This is a mock response.",
@@ -91,10 +65,10 @@ class LocalLLMClient:
         }
 
     def _call_ollama(self, prompt: str, llm_options: Optional[Dict[str, Any]] = None, output_format: str = "json") -> Any:
-        """Calls Ollama API and retries on failure."""
+        """Calls Ollama API with retries and JSON repair."""
         url = f"{self.host}/api/generate"
 
-        # Speed-focused defaults
+        # Defaults optimizing for speed
         default_options = {
             "temperature": 0.0,
             "num_ctx": 2048,
@@ -103,7 +77,6 @@ class LocalLLMClient:
             "top_p": 0.9
         }
 
-        # Merge with user-provided options
         options = {**default_options, **(llm_options or {})}
 
         payload = {
@@ -114,7 +87,6 @@ class LocalLLMClient:
             "stop": ["```", "<start_of_turn>"]
         }
 
-        # Only enforce JSON format if requested
         if output_format == "json":
             payload["format"] = "json"
 
@@ -134,7 +106,7 @@ class LocalLLMClient:
                 if output_format == "text":
                     return raw_response
 
-                # If JSON, repair and parse
+                # Parse JSON
                 repaired_json = repair_json(raw_response)
                 return json.loads(repaired_json)
 
@@ -142,21 +114,19 @@ class LocalLLMClient:
                 last_error = e
                 continue
             except requests.exceptions.RequestException as e:
-                # Check for 404 (Model not found)
                 if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 404:
                     raise RuntimeError(
-                        f"Model '{self.model}' not found on Ollama server. "
-                        f"Run `ollama pull {self.model}` in your terminal."
+                        f"Model '{self.model}' not found. Run `ollama pull {self.model}`."
                     )
                 raise RuntimeError(f"Ollama connection failed: {str(e)}")
 
-        # If we exhausted retries (only for JSON since Text doesn't really 'fail' parsing)
+        # Fallbacks
         if output_format == "text":
              return last_raw_response or "Error: No response."
 
         preview = last_raw_response[:300] if last_raw_response else "No response captured"
         raise RuntimeError(
-            f"Failed to parse valid JSON after {max_retries} attempts.\n"
-            f"Last error: {str(last_error)}\n"
-            f"Response preview: {preview}..."
+            f"JSON parsing failed after {max_retries} attempts.\n"
+            f"Error: {str(last_error)}\n"
+            f"Preview: {preview}..."
         )

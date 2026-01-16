@@ -8,10 +8,8 @@ def has_numeric_value(text: str) -> bool:
 
 def gate_safety_flags(report: SafetyReport) -> SafetyReport:
     """
-    Filters out low-quality flags based on:
-    - Confidence threshold
-    - Evidence quality (number of quotes)
-    - Severity-specific rules
+    Quality gate to filter out low-confidence hallucinations and weak signals.
+    Enforces minimum confidence and evidence requirements.
     """
     if not report.metadata:
         report.metadata = {}
@@ -39,19 +37,15 @@ def gate_safety_flags(report: SafetyReport) -> SafetyReport:
             dropped_flags.append({"flag": flag.explanation[:50], "reason": f"HIGH severity needs >0.65 confidence, got {flag.confidence}"})
             continue
 
-        # Rule 4: Strict Grounding (Anti-Hallucination)
-        # If ALL evidence sources are UNKNOWN (or None), the flag is likely a hallucination and must be dropped.
+        # Rule 4: Strict Evidence Grounding
+        # If ALL evidence sources are UNKNOWN, drop as probable hallucination.
         if all(getattr(ev, "source", "UNKNOWN") in ["UNKNOWN", None] for ev in flag.evidence):
              dropped_flags.append({"flag": flag.explanation[:50], "reason": "No grounded evidence found (Hallucination risk)"})
              continue
 
-        # Rule 4b: Partial Grounding Warning (Optional - for now we keep if at least 1 grounded)
-
-
-
         kept_flags.append(flag)
 
-    # Store gating decisions in metadata
+    # Telemetry
     if not report.metadata:
         report.metadata = {}
     report.metadata["gating_kept"] = len(kept_flags)
@@ -69,30 +63,22 @@ def gate_safety_flags(report: SafetyReport) -> SafetyReport:
 
 def calibrate_confidence(report: SafetyReport) -> SafetyReport:
     """
-    Adjusts confidence scores based on heuristic rules regarding severity and evidence strength.
-
-    Rules:
-    1. HIGH severity + >= 2 evidence quotes -> Boost to min 0.80 (Strong evidence warrants high trust)
-    2. MEDIUM severity + <= 1 evidence quote -> Cap at 0.65 (Weak evidence limits trust)
-    3. LOW severity -> Cap at 0.55 (Minor issues should not be overconfident)
+    Heuristically adjusts confidence based on evidence strength and severity.
+    - Boosts verified HIGH severity issues.
+    - Caps confidence for weak evidence.
     """
     for flag in report.flags:
-        # Rule 1: High Severity Boost
-        # If it's a critical safety issue and we have multiple pieces of evidence (e.g. Note + Meds),
-        # we boost confidence to ensure it surfaces prominently.
+        # Rule 1: High Severity Boost (Strong Evidence)
         if flag.severity == SafetySeverity.HIGH and len(flag.evidence) >= 2:
             if flag.confidence < 0.80:
                 flag.confidence = 0.80
 
         # Rule 2: Medium Severity Cap (Weak Evidence)
-        # If a medium issue has scant evidence (only 1 quote), we limit confidence
-        # to prevent "alert fatigue" from potentially ambiguous findings.
         elif flag.severity == SafetySeverity.MEDIUM and len(flag.evidence) <= 1:
             if flag.confidence > 0.65:
                 flag.confidence = 0.65
 
-        # Rule 3: Low Severity Cap
-        # Low severity items are mostly informational; model shouldn't claim certainty.
+        # Rule 3: Low Severity Cap (General caution)
         elif flag.severity == SafetySeverity.LOW:
             if flag.confidence > 0.55:
                 flag.confidence = 0.55

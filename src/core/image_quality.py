@@ -1,9 +1,5 @@
-# This module is intentionally non-diagnostic and deterministic.
-# Do not extend with AI-based vision analysis.
-#
-# Product Rationale:
-# Vision-language models were intentionally excluded to ensure deterministic,
-# safe, and non-diagnostic behavior. Image handling is limited to usability checks.
+# Non-diagnostic, deterministic usability checks.
+# Vision-language models excluded for safety determinism.
 
 import io
 import numpy as np
@@ -22,7 +18,7 @@ def load_image(image_input: Union[bytes, str]) -> Image.Image:
 def compute_quality(image: Image.Image) -> Dict[str, Any]:
     """
     Computes heuristic quality metrics for a document image.
-    Deterministic checks: resolution, blur, contrast, margins.
+    Checks: resolution, blur (Laplacian), contrast, margins.
     """
     # Ensure RGB
     if image.mode != "RGB":
@@ -44,8 +40,7 @@ def compute_quality(image: Image.Image) -> Dict[str, Any]:
     else:
         observations.append(f"Resolution adequate ({width}x{height})")
 
-    # 2. Blur Check (Variance of Laplacian)
-    # Using Pillow's Kernel filter to approximate Laplacian if cv2 missing
+    # 2. Blur Check (Laplacian Variance)
     try:
         # Standard 3x3 Laplacian kernel
         laplacian_kernel = (
@@ -54,11 +49,8 @@ def compute_quality(image: Image.Image) -> Dict[str, Any]:
             0, -1, 0
         )
         edges = grayscale.filter(ImageFilter.Kernel((3, 3), laplacian_kernel, scale=1, offset=0))
-        # Variance of the edge map
         edge_var = np.var(np.array(edges))
 
-        # Threshold implies "blurriness". Document images usually have sharp edges (high var).
-        # < 100 is often quite blurry for text.
         if edge_var < 100:
             issues.append("Image appears blurry; may reduce legibility.")
             uncertainties.append(f"Blur score: {edge_var:.1f} (Low)")
@@ -76,12 +68,11 @@ def compute_quality(image: Image.Image) -> Dict[str, Any]:
     elif std_dev < 40:
         risks.append("Moderate contrast; verify text visibility.")
 
-    # 4. Cropping / Empty Margins
-    # Simple check: bright pixels near borders?
-    # This is tricky without advanced segmentation, lets rely on simple "Is it mostly white?"
-    if np.mean(img_array) > 250:
+    # 4. Exposure Check (Mean Pixel Intensity)
+    mean_val = np.mean(img_array)
+    if mean_val > 250:
         issues.append("Image appears blank or overexposed.")
-    elif np.mean(img_array) < 5:
+    elif mean_val < 5:
         issues.append("Image appears too dark.")
 
     # 5. Orientation
@@ -92,7 +83,7 @@ def compute_quality(image: Image.Image) -> Dict[str, Any]:
 
     # Success Condition
     if not issues and not risks:
-        observations.append("Image appears readable and complete (quality check only).")
+        observations.append("Image appears readable and complete.")
 
     return {
         "visual_observations": observations,

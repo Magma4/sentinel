@@ -39,6 +39,16 @@ def gate_safety_flags(report: SafetyReport) -> SafetyReport:
             dropped_flags.append({"flag": flag.explanation[:50], "reason": f"HIGH severity needs >0.65 confidence, got {flag.confidence}"})
             continue
 
+        # Rule 4: Strict Grounding (Anti-Hallucination)
+        # If ALL evidence sources are UNKNOWN (or None), the flag is likely a hallucination and must be dropped.
+        if all(getattr(ev, "source", "UNKNOWN") in ["UNKNOWN", None] for ev in flag.evidence):
+             dropped_flags.append({"flag": flag.explanation[:50], "reason": "No grounded evidence found (Hallucination risk)"})
+             continue
+
+        # Rule 4b: Partial Grounding Warning (Optional - for now we keep if at least 1 grounded)
+
+
+
         kept_flags.append(flag)
 
     # Store gating decisions in metadata

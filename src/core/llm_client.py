@@ -1,7 +1,7 @@
 import requests
 import json
 import re
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 
 def repair_json(raw_json: str) -> str:
@@ -68,6 +68,19 @@ class LocalLLMClient:
 
         return {}
 
+    def generate_text(self, prompt: str, llm_options: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generates plain text output from the LLM.
+        :param prompt: The full prompt string
+        :param llm_options: Optional dict of Ollama options
+        :return: Generated string
+        """
+        if self.backend == "mock":
+             return "This is a mock chat response."
+        elif self.backend == "ollama":
+             return self._call_ollama(prompt, llm_options, output_format="text")
+        return ""
+
     def _call_mock(self, prompt: str) -> Dict[str, Any]:
         """Returns deterministic canned outputs for testing."""
         # Simple canned response structure
@@ -77,8 +90,8 @@ class LocalLLMClient:
             "flags": []
         }
 
-    def _call_ollama(self, prompt: str, llm_options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Calls Ollama API with format='json' and retries on failure."""
+    def _call_ollama(self, prompt: str, llm_options: Optional[Dict[str, Any]] = None, output_format: str = "json") -> Any:
+        """Calls Ollama API and retries on failure."""
         url = f"{self.host}/api/generate"
 
         # Speed-focused defaults
@@ -97,10 +110,13 @@ class LocalLLMClient:
             "model": self.model,
             "prompt": prompt,
             "stream": False,
-            "format": "json",
             "options": options,
             "stop": ["```", "<start_of_turn>"]
         }
+
+        # Only enforce JSON format if requested
+        if output_format == "json":
+            payload["format"] = "json"
 
         max_retries = 2
         last_error = None
@@ -112,13 +128,14 @@ class LocalLLMClient:
                 response.raise_for_status()
 
                 data = response.json()
-                raw_json = data.get("response", "{}")
-                last_raw_response = raw_json
+                raw_response = data.get("response", "")
+                last_raw_response = raw_response
 
-                # Repair common JSON formatting errors before parsing
-                repaired_json = repair_json(raw_json)
+                if output_format == "text":
+                    return raw_response
 
-                # Parse the inner JSON string returned by the LLM
+                # If JSON, repair and parse
+                repaired_json = repair_json(raw_response)
                 return json.loads(repaired_json)
 
             except json.JSONDecodeError as e:
@@ -133,7 +150,10 @@ class LocalLLMClient:
                     )
                 raise RuntimeError(f"Ollama connection failed: {str(e)}")
 
-        # If we exhausted retries, provide detailed error with response preview
+        # If we exhausted retries (only for JSON since Text doesn't really 'fail' parsing)
+        if output_format == "text":
+             return last_raw_response or "Error: No response."
+
         preview = last_raw_response[:300] if last_raw_response else "No response captured"
         raise RuntimeError(
             f"Failed to parse valid JSON after {max_retries} attempts.\n"

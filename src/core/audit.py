@@ -73,6 +73,7 @@ class SafetyAuditor:
                         "num_predict": 420,
                         "temperature": 0.0
                     }
+                # Run Main Audit
                 raw_response = self.client.generate_json(self.prompt_template, input_vars, llm_options)
             except Exception as e:
                 return SafetyReport(
@@ -207,9 +208,10 @@ class SafetyAuditor:
                     source = item.get("source", "UNKNOWN")
 
                 if quote:
-                     # Try to infer source if unknown
-                     if source == "UNKNOWN":
-                         source = self._infer_evidence_source(quote, note, labs, meds)
+                     # infer_evidence_source checks if the quote is actually in the text
+                     # We trust this ground-truth over the LLM's 'source' field (which might be hallucinated)
+                     verified_source = self._infer_evidence_source(quote, note, labs, meds)
+                     source = verified_source
 
                      # Auto-highlight numbers if not present
                      import re

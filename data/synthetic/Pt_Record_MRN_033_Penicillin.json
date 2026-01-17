@@ -1,0 +1,22 @@
+{
+  "patient_id": "CASE-033",
+  "note": "Subjective: Sore throat, fever. Objective: Tonsillar exudates. Hx: Severe hives with Penicillin. Assessment: Strep Pharyngitis. Plan: Start Amoxicillin 500mg TID x 10 days.",
+  "labs": [
+    {
+      "name": "Rapid Strep",
+      "value": "Positive",
+      "unit": "N/A",
+      "date": "2024-03-01"
+    }
+  ],
+  "meds": [
+    "Amoxicillin 500mg TID"
+  ],
+  "ground_truth": [
+    {
+      "category": "MED_LAB_CONFLICT",
+      "severity": "HIGH",
+      "key": "Penicillin Allergy"
+    }
+  ]
+}

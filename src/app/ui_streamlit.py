@@ -139,14 +139,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Sidebar
-# Sidebar
 with st.sidebar:
-    col_logo, col_title = st.columns([1, 4])
-    with col_logo:
-        st.image("src/app/assets/logo.png", use_container_width=True)
-    with col_title:
-        st.markdown("## SentinelMD")
-
+    st.title("🛡️ SentinelMD")
     st.caption("Clinical Safety Copilot")
     st.markdown("---")
 
@@ -172,13 +166,18 @@ with st.sidebar:
     st.markdown("---")
     with st.expander("🔧 System Status", expanded=True):
         # 1. Review Engine
-        available_models = ["amsaravi/medgemma-4b-it:q6", "mock-model"]
-        selected_model = st.selectbox(
+        model_map = {
+            "MedGemma 4B": "amsaravi/medgemma-4b-it:q6",
+            "Mock Model (Test)": "mock-model"
+        }
+
+        display_name = st.selectbox(
             "Local Review Engine",
-            available_models,
+            options=list(model_map.keys()),
             index=0,
             help="Select local inference model."
         )
+        selected_model = model_map[display_name]
         st.session_state.backend_type = "ollama"
 
         # Init Services
@@ -295,7 +294,7 @@ elif input_mode == "Upload Files":
 
     col_u1, col_u2, col_u3 = st.columns(3)
     with col_u1:
-        note_files = st.file_uploader("Clinical Notes", type=["txt", "pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
+        note_files = st.file_uploader("Clinical Notes", type=["txt", "pdf", "png", "jpg", "jpeg", "csv", "json"], accept_multiple_files=True)
         if note_files:
             file_source_type = "MULTIPLE FILES" if len(note_files) > 1 else f"FILE ({note_files[0].name.split('.')[-1].upper()})"
             for f in note_files:
@@ -305,13 +304,13 @@ elif input_mode == "Upload Files":
                  st.caption(f"- {f.name}")
 
     with col_u2:
-        labs_files = st.file_uploader("Labs", type=["txt", "csv", "pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
+        labs_files = st.file_uploader("Labs", type=["txt", "pdf", "png", "jpg", "jpeg", "csv", "json"], accept_multiple_files=True)
         if labs_files:
             st.caption(f"Selected: {len(labs_files)} file(s)")
             for f in labs_files: st.caption(f"- {f.name}")
 
     with col_u3:
-        meds_files = st.file_uploader("Medications", type=["txt", "pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
+        meds_files = st.file_uploader("Medications", type=["txt", "pdf", "png", "jpg", "jpeg", "csv", "json"], accept_multiple_files=True)
         if meds_files:
             st.caption(f"Selected: {len(meds_files)} file(s)")
             for f in meds_files: st.caption(f"- {f.name}")
@@ -503,82 +502,119 @@ with tab_safety:
 
         # Assistant (Chat)
         st.markdown("### 💬 Safety Review Assistant")
-        st.caption("Ask questions about the completed audit. Non-diagnostic; no treatment advice.")
 
         if "chat_session" not in st.session_state:
             st.session_state.chat_session = ChatSession()
 
-        # Reset if audit changed
-        audit_dict = report.model_dump()
-        input_summary_txt = f"Notes: {len(standardized_inputs.get('note_text', ''))} chars | Labs: {len(standardized_inputs.get('labs_text', ''))} chars"
-        # Use Chat Service to manage state reset
-        st.session_state.chat_session = st.session_state.chat_service.reset_session(
-            st.session_state.chat_session,
-            audit_dict,
-            input_summary_txt
-        )
+        # Backward Compatibility: Ensure suggested_replies exists if session is stale
+        if not hasattr(st.session_state.chat_session, "suggested_replies"):
+            st.session_state.chat_session.suggested_replies = []
 
-        # Scrolling History Container
-        st.markdown('<div class="chat-history-box">', unsafe_allow_html=True)
+        # Reset session if audit changed (only if run_btn was pressed recently)
+        # Note: We rely on the fact that if report exists, we can chat.
 
-        # Display History
-        for msg in st.session_state.chat_session.history:
-            if msg.role == "user":
-                # Custom User Bubble (Right Aligned)
-                st.markdown(f"""
-                <div style="display: flex; justify-content: flex-end; align-items: flex-start; margin: 10px 0;">
-                    <div class="user-bubble">
-                        {msg.content}
-                    </div>
-                    <div style="font-size: 24px; margin-top: -5px;">🧑‍⚕️</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                # Standard Assistant Bubble (Left)
-                # Note: st.chat_message doesn't nest well inside HTML divs in some versions,
-                # but we use markdown bubbles for consistency inside the scroll box if needed.
-                # However, to keep it simple with Streamlit's flow, we will use custom HTML bubbles for assistant too
-                # to ensure they stay INSIDE the div.
-                st.markdown(f"""
-                <div style="display: flex; justify-content: flex-start; align-items: flex-start; margin: 10px 0;">
-                    <div style="font-size: 24px; margin-top: -5px; margin-right: 10px;">🛡️</div>
-                    <div style="background-color: rgba(128,128,128,0.1); padding: 10px 15px; border-radius: 0 15px 15px 15px; color: var(--text-std);">
-                        {msg.content}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+        # State Management: Init
+        if not report:
+             st.info("Run a Safety Review to enable the assistant.")
+        else:
+            # 1. State Update
+            audit_dict = report.model_dump()
+            # Create meaningful context for the assistant
+            raw_note = standardized_inputs.get('note_text', '')
+            # Take safe header/context (first 2k chars) to capture demographics + HPI
+            context_snippet = raw_note[:2000] + ("..." if len(raw_note) > 2000 else "")
+            input_summary_txt = f"Clinical Note Content:\n{context_snippet}"
 
-        st.markdown('</div>', unsafe_allow_html=True) # Close scroll box
+            st.session_state.chat_session = st.session_state.chat_service.reset_session(
+                st.session_state.chat_session,
+                audit_dict,
+                input_summary_txt
+            )
 
-        # Suggestions
-        query = None
-        if not st.session_state.chat_session.history:
-            col1, col2, col3 = st.columns([1, 1, 1])
-            if col1.button("❓ Explain Flags", use_container_width=True): query = "Why were these flags raised?"
-            if col2.button("📄 Show Evidence", use_container_width=True): query = "What evidence supports the top risks?"
-            if col3.button("🔍 Missing Info", use_container_width=True): query = "What info is missing?"
+            # 2. Chat Layout (Height constrained container)
+            chat_container = st.container(height=500)
 
-        # Chat Input
-        if user_input := st.chat_input("Ask about safety flags..."):
-            query = user_input
+            with chat_container:
+                # Render History
+                for msg in st.session_state.chat_session.history:
+                    if msg.role == "user":
+                        # Custom User Bubble (Right Aligned)
+                        st.markdown(f"""
+                        <div style="display: flex; justify-content: flex-end; align-items: flex-start; margin: 10px 0;">
+                            <div style="background-color: #007bff; color: white; padding: 10px 15px; border-radius: 15px 15px 0 15px; margin-right: 10px;">
+                                {msg.content}
+                            </div>
+                            <div style="font-size: 24px; margin-top: -5px;">🧑‍⚕️</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        # Standard Assistant Bubble (Left)
+                        st.markdown(f"""
+                        <div style="display: flex; justify-content: flex-start; align-items: flex-start; margin: 10px 0;">
+                            <div style="font-size: 24px; margin-top: -5px; margin-right: 10px;">🛡️</div>
+                            <div style="background-color: rgba(128,128,128,0.1); padding: 10px 15px; border-radius: 0 15px 15px 15px; color: var(--text-std);">
+                                {msg.content}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-        if query:
-            # Render User
-            st.session_state.chat_session.history.append(ChatMessage(role="user", content=query))
+            # 3. Suggested Replies (Chips)
+            # Only show if no pending input and we have suggestions
+            query = None
+            if st.session_state.chat_session.suggested_replies:
+                st.write("") # Spacer
+                cols = st.columns(len(st.session_state.chat_session.suggested_replies))
+                for i, chip_text in enumerate(st.session_state.chat_session.suggested_replies):
+                    if cols[i].button(chip_text, key=f"chip_{len(st.session_state.chat_session.history)}_{i}"):
+                        query = chip_text
 
+            # 4. Chat Input
+            if user_input := st.chat_input("Ask about safety flags..."):
+                query = user_input
 
-            # Render Assistant
-            with st.spinner("Analyzing..."):
-                response = st.session_state.chat_service.generate_reply(
-                    st.session_state.chat_session,
-                    query
-                )
-                st.session_state.chat_session.history.append(ChatMessage(role="assistant", content=response))
+            # 5. Execution Loop
+            if query:
+                # Add User Message
+                st.session_state.chat_session.history.append(ChatMessage(role="user", content=query))
+                st.session_state.chat_session.suggested_replies = [] # Clear chips
+                st.rerun()
 
-            st.rerun()
+            # Handle Response Generation (post-rerun)
+            if st.session_state.chat_session.history and st.session_state.chat_session.history[-1].role == "user":
+                with chat_container:
 
-    else:
-        st.info("Click 'Run Safety Review' in the sidebar to analyze this case.")
+                     with st.chat_message("assistant", avatar="🛡️"):
+                        # Visual "thinking" indicator
+                        think_box = st.empty()
+                        think_box.markdown("...")
+
+                        # Pre-compute response (blocking)
+                        full_response = st.session_state.chat_service.generate_reply(
+                            st.session_state.chat_session,
+                            st.session_state.chat_session.history[-1].content
+                        )
+
+                        # Clear indicator
+                        think_box.empty()
+
+                        # Stream response
+                        def fast_stream():
+                            import time
+                            words = full_response.split()
+                            for w in words:
+                                yield w + " "
+                                time.sleep(0.02)
+
+                        response_stream = st.write_stream(fast_stream)
+
+                        # Save to history
+                        st.session_state.chat_session.history.append(ChatMessage(role="assistant", content=response_stream))
+
+                        # Regenerate chips
+                        st.session_state.chat_session.suggested_replies = st.session_state.chat_service.generate_suggestions(
+                            st.session_state.chat_session.context, response_stream
+                        )
+                        st.rerun()
 
 # Tab 2: Inputs
 with tab_inputs:
@@ -611,9 +647,7 @@ with tab_inputs:
                 display_content = display_content.replace(h, f"<mark style='background-color: #fff3cd; color: #856404; font-weight: bold;'>{h}</mark>")
 
         st.markdown(f"""
-        <div style="height: 500px; overflow-y: auto; background-color: #f0f2f6; color: #31333F; padding: 10px; border-radius: 5px; font-family: monospace; white-space: pre-wrap;">
-        {display_content if display_content else "No clinical note provided."}
-        </div>
+        <div style="height: 500px; overflow-y: auto; background-color: #f0f2f6; color: #31333F; padding: 10px; border-radius: 5px; font-family: monospace; white-space: pre-wrap;">{display_content if display_content else "No clinical note provided."}</div>
         """, unsafe_allow_html=True)
 
     with col2:

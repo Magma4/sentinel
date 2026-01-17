@@ -1,0 +1,39 @@
+{
+  "patient_id": "MRN-2255",
+  "meds": [
+    "Amlodipine"
+  ],
+  "allergies": [],
+  "conditions": [
+    "Acute Ischemic Stroke"
+  ],
+  "labs": [
+    {
+      "name": "Glucose",
+      "value": 110,
+      "unit": "mg/dL",
+      "date": "2024-07-05"
+    },
+    {
+      "name": "BP",
+      "value": "195/110",
+      "unit": "mmHg",
+      "date": "2024-07-05"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2024-07-05",
+      "author": "Dr. Neuro",
+      "content": "Code Stroke. LKW 2 hours ago. NIHSS 12.\nCT Head negative for bleed.\nBP 195/110.\nPlan: Proceed with IV tPA bolus immediately."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "CONTRAINDICATION",
+      "severity": "CRITICAL",
+      "key": "tPA Hypertension",
+      "explanation": "tPA cannot be given if BP > 185/110 due to bleed risk. BP must be lowered with Labetalol/Nicardipine first."
+    }
+  ]
+}

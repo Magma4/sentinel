@@ -163,7 +163,9 @@ class SafetyAuditor:
             return "Guidelines unavailable."
 
     def _repair_evidence(self, flags: List[Dict], note: str, labs: str, meds: str):
-        """Standardizes evidence structure and attempts to verify source."""
+        """Standardizes evidence structure and attempts to verify source via Fuzzy Matching."""
+        import difflib
+
         for f in flags:
             ev_list = f.get("evidence", [])
             if not isinstance(ev_list, list):
@@ -182,10 +184,26 @@ class SafetyAuditor:
                     source = item.get("source", "UNKNOWN")
 
                 if quote:
-                     # Verify Source
-                     verified_source = self._infer_evidence_source(quote, note, labs, meds)
-                     source = verified_source
+                    # Fuzzy Verification
+                    # 1. Try Exact First
+                    verified_source, verified_quote = self._find_best_source(quote, note, labs, meds)
 
+                    if verified_source != "UNKNOWN":
+                        source = verified_source
+                        quote = verified_quote # Correct the quote to match the text exactly
+                    else:
+                         # 2. Try Fuzzy (Difflib)
+                         # Search distinct 100-char chunks for matches? No, simplify:
+                         # Scan combined text?
+                         best_match, best_src, score = self._fuzzy_search(quote, note, labs, meds)
+                         if score > 0.85: # Strict threshold
+                             source = best_src
+                             quote = best_match
+
+                # Remove hallucinated evidence if still UNKNOWN?
+                # Policy: Keep it but mark as UNKNOWN so Gating drops it.
+
+                if quote:
                      # Auto-Highlight Numbers
                      import re
                      highlighted = quote
@@ -202,34 +220,48 @@ class SafetyAuditor:
 
             f["evidence"] = repaired_ev
 
-    def _infer_evidence_source(self, quote: str, note: str, labs: str, meds: str) -> str:
-        """Guesses evidence source (NOTE/LABS/MEDS) via exact match or token overlap."""
-        def get_best_source(q_tokens: set) -> str:
-            scores = {
-                "NOTE": len(q_tokens.intersection(set(note.lower().split()))),
-                "LABS": len(q_tokens.intersection(set(labs.lower().split()))),
-                "MEDS": len(q_tokens.intersection(set(meds.lower().split())))
-            }
-            best = max(scores, key=scores.get)
-            if scores[best] > 0:
-                return best
-            return "UNKNOWN"
+    def _find_best_source(self, quote: str, note: str, labs: str, meds: str):
+        q_lower = quote.lower().strip()
+        if not q_lower: return "UNKNOWN", quote
 
-        q_lower = quote.lower()
+        if q_lower in note.lower(): return "NOTE", quote
+        if q_lower in labs.lower(): return "LABS", quote
+        if q_lower in meds.lower(): return "MEDS", quote
+        return "UNKNOWN", quote
 
-        # 1. Exact Match
-        if q_lower in note.lower(): return "NOTE"
-        if q_lower in labs.lower(): return "LABS"
-        if q_lower in meds.lower(): return "MEDS"
+    def _fuzzy_search(self, quote: str, note: str, labs: str, meds: str):
+        import difflib
 
-        # 2. Token Overlap
-        stops = {"patient", "has", "is", "a", "the", "with", "allergy", "hives"}
-        tokens = set(q_lower.replace(":","").replace(".","").split()) - stops
+        candidates = []
+        # Create sliding window candidates? Too slow.
+        # Use simple get_close_matches on lines
 
-        if tokens:
-            return get_best_source(tokens)
+        all_lines = []
+        for line in note.split('\n'): all_lines.append((line, "NOTE"))
+        for line in labs.split('\n'): all_lines.append((line, "LABS"))
+        for line in meds.split('\n'): all_lines.append((line, "MEDS"))
 
-        return "UNKNOWN"
+        best_ratio = 0.0
+        best_match = quote
+        best_src = "UNKNOWN"
+
+        # Heuristic: Check against lines
+        # This is rough but fast. Ideally we'd scan n-grams.
+        # Check against sentences
+
+        for line, src in all_lines:
+            if not line.strip(): continue
+            ratio = difflib.SequenceMatcher(None, quote.lower(), line.lower()).ratio()
+            # If line is huge and quote is small, ratio drops. partial ratio needed.
+            if quote.lower() in line.lower():
+                return line, src, 1.0 # Substring match
+
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_match = line # Replace hallucination with real line
+                best_src = src
+
+        return best_match, best_src, best_ratio
 
 
     def _mock_audit(self, note: str, labs: str, meds: str) -> Dict[str, Any]:

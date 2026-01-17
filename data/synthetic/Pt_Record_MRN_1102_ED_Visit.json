@@ -1,0 +1,42 @@
+{
+  "patient_id": "MRN-1102",
+  "meds": [
+    "Metformin"
+  ],
+  "allergies": [
+    "Shellfish"
+  ],
+  "conditions": [
+    "Diabetes",
+    "Abdominal Pain"
+  ],
+  "labs": [
+    {
+      "name": "Creatinine",
+      "value": 2.8,
+      "unit": "mg/dL",
+      "date": "2024-06-12"
+    },
+    {
+      "name": "eGFR",
+      "value": 25,
+      "unit": "mL/min",
+      "date": "2024-06-12"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2024-06-12",
+      "author": "Dr. Swift (ED)",
+      "content": "Patient presents with RLQ pain. Rule out Appendicitis.\nLabs: Cr 2.8 (Baseline 1.0).\nPlan: Order CT Abdomen/Pelvis WITH IV Contrast to visualize appendix."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "CONTRAINDICATION",
+      "severity": "HIGH",
+      "key": "Contrast Nephropathy Risk",
+      "explanation": "Ordering IV Contrast in patient with acute renal failure (Cr 2.8, GFR 25) risks worsening kidney injury (CIN). Non-contrast or Ultrasound preferred."
+    }
+  ]
+}

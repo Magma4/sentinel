@@ -1,0 +1,41 @@
+{
+  "patient_id": "MRN-7734",
+  "meds": [
+    "Warfarin 5mg daily",
+    "Lisinopril 10mg daily"
+  ],
+  "allergies": [],
+  "conditions": [
+    "Atrial Fibrillation",
+    "Distal Radius Fracture"
+  ],
+  "labs": [
+    {
+      "name": "INR",
+      "value": 2.8,
+      "unit": "",
+      "date": "2025-01-10"
+    },
+    {
+      "name": "Creatinine",
+      "value": 0.9,
+      "unit": "mg/dL",
+      "date": "2025-01-10"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2025-01-15",
+      "author": "Dr. S. Bones",
+      "content": "Subjective: 65yo F presents to ED after slip and fall on ice. Complains of 9/10 pain in right wrist.\nObjective: Right distal radius deformed, swollen, tender.\nPlan: \n1. Ibuprofen 600mg PO q6h for pain.\n2. Reduction and casting.\n3. Discharge home."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "MED_MED_CONFLICT",
+      "severity": "HIGH",
+      "key": "Warfarin + NSAID Interaction",
+      "explanation": "Prescribing Ibuprofen (NSAID) to a patient on Warfarin significantly increases bleeding risk. Tylenol is preferred."
+    }
+  ]
+}

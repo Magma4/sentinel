@@ -1,0 +1,42 @@
+{
+  "patient_id": "MRN-4592",
+  "meds": [
+    "Aspirin",
+    "Atorvastatin",
+    "Lisinopril"
+  ],
+  "allergies": [],
+  "conditions": [
+    "Acute Myocardial Infarction (STEMI)",
+    "Hypertension"
+  ],
+  "labs": [
+    {
+      "name": "Troponin I",
+      "value": 12.5,
+      "unit": "ng/mL",
+      "date": "2024-06-01"
+    },
+    {
+      "name": "LVEF",
+      "value": 40,
+      "unit": "%",
+      "date": "2024-06-02"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2024-06-05",
+      "author": "Dr. Hart (Cardiology)",
+      "content": "Discharge Summary.\nPrincipal Diagnosis: Anterior STEMI.\nIntervention: DES to LAD.\nEcho: LVEF 40%.\nDischarge Plan: Home conformtable. Continue Aspirin, Statin, ACEi. Follow up 2 weeks."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "MISSING_THERAPY",
+      "severity": "HIGH",
+      "key": "Missing Beta Blocker",
+      "explanation": "Patient with recent MI and reduced LVEF (40%) should be on a Beta Blocker unless contraindicated."
+    }
+  ]
+}

@@ -36,6 +36,20 @@ class ChatService:
                 inputs_summary=input_summary,
                 evidence_index=evidence_idx
             )
+
+            # Initial Welcome Message
+            welcome_msg = (
+                "The safety review is complete.\n"
+                "I can help explain identified flags, show supporting evidence, or clarify missing information.\n"
+                "This assistant is non-diagnostic and audit-scoped only."
+            )
+            session.history = [ChatMessage(role="assistant", content=welcome_msg)]
+            session.suggested_replies = [
+                "Explain the flags",
+                "Show supporting evidence",
+                "What information is missing?"
+            ]
+
         return session
 
     def classify_query(self, user_text: str) -> Dict[str, Any]:
@@ -117,7 +131,30 @@ Answer concisely (3-4 sentences max). Use bullet points if listing evidence.
              raw_resp = self.engine.generate_text(instruction, opts)
 
              clean_resp = raw_resp.replace("Assistant:", "").strip()
+             clean_resp = raw_resp.replace("Assistant:", "").strip()
+
+             # Generate Chips
+             session.suggested_replies = self.generate_suggestions(session.context, clean_resp)
+
              return clean_resp
         except Exception as e:
             logger.error(f"Chat generation failed: {e}")
+            logger.error(f"Chat generation failed: {e}")
             return "Local review engine unavailable."
+
+    def generate_suggestions(self, context: AuditContext, last_reply: str) -> List[str]:
+        """Dynamic chip generation based on context."""
+        suggestions = []
+
+        # Heuristics
+        if "Missing Info" in last_reply or "missing" in last_reply.lower():
+             suggestions.append("Why is this info needed?")
+
+        if "High" in last_reply or "HIGH" in last_reply:
+             suggestions.append("Show evidence for high severity flags")
+
+        # Defaults if empty
+        defaults = ["Explain the flags", "Show evidence", "What info is missing?"]
+        suggestions.extend([d for d in defaults if d not in suggestions])
+
+        return suggestions[:3]

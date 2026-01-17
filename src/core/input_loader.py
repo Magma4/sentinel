@@ -130,6 +130,18 @@ def standardize_input(
                  c_data = inp.read()
                  content = parse_csv_labs(c_data)
 
+            # JSON (Pretty Print)
+            elif filename.endswith(".json"):
+                 import json
+                 if hasattr(inp, "seek"): inp.seek(0)
+                 try:
+                     content = json.dumps(json.load(inp), indent=2)
+                 except Exception:
+                     # Fallback to raw text if invalid JSON
+                     if hasattr(inp, "seek"): inp.seek(0)
+                     c_data = inp.read()
+                     content = c_data.decode('utf-8', errors='replace') if isinstance(c_data, bytes) else str(c_data)
+
             # Default Text handling for BytesIO
             elif hasattr(inp, "read"):
                 if hasattr(inp, "seek"): inp.seek(0)

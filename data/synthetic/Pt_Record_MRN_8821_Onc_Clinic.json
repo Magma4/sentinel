@@ -1,0 +1,48 @@
+{
+  "patient_id": "MRN-8821",
+  "meds": [
+    "Doxorubicin",
+    "Cyclophosphamide"
+  ],
+  "allergies": [
+    "Penicillin"
+  ],
+  "conditions": [
+    "Breast Cancer"
+  ],
+  "labs": [
+    {
+      "name": "WBC",
+      "value": 0.8,
+      "unit": "K/uL",
+      "date": "2024-06-10"
+    },
+    {
+      "name": "ANC",
+      "value": 200,
+      "unit": "cells/uL",
+      "date": "2024-06-10"
+    },
+    {
+      "name": "Temp",
+      "value": 101.5,
+      "unit": "F",
+      "date": "2024-06-10"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2024-06-10",
+      "author": "NP Smith",
+      "content": "Chemo Cycle 3 Day 10. Patient reports feeling warm/chills today.\nExam: T 101.5.\nAssessment: Viral syndrome likely.\nPlan: Tylenol and fluids. Return if worse."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "CLINICAL_RISK",
+      "severity": "CRITICAL",
+      "key": "Neutropenic Fever",
+      "explanation": "Febrile Neutropenia (ANC < 500 + Fever) is a medical emergency requiring broad-spectrum antibiotics, not just Tylenol."
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+Patient: John Doe
+DOB: 01/01/1980
+
+Subjective: Pt presents with fatigue.
+Assessment: Hyperkalemia suspected.
+Plan: Check labs, review meds.

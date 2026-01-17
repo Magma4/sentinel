@@ -1,0 +1,46 @@
+{
+  "patient_id": "MRN-9901",
+  "meds": [
+    "Piperacillin-Tazobactam"
+  ],
+  "allergies": [],
+  "conditions": [
+    "Pneumonia",
+    "Sepsis"
+  ],
+  "labs": [
+    {
+      "name": "Lactate",
+      "value": 4.5,
+      "unit": "mmol/L",
+      "date": "2024-07-01"
+    },
+    {
+      "name": "WBC",
+      "value": 22.0,
+      "unit": "K/uL",
+      "date": "2024-07-01"
+    },
+    {
+      "name": "BP",
+      "value": "85/50",
+      "unit": "mmHg",
+      "date": "2024-07-01"
+    }
+  ],
+  "notes": [
+    {
+      "date": "2024-07-01",
+      "author": "Dr. Intensivist",
+      "content": "Admit from ED. Hypoxic, febrile.\nLactate elevated at 4.5.\nPlan: Zosyn started. Maintenance fluids at 75cc/hr. Monitor BP."
+    }
+  ],
+  "ground_truth": [
+    {
+      "category": "CLINICAL_RISK",
+      "severity": "CRITICAL",
+      "key": "Sepsis Bundle Non-Compliance",
+      "explanation": "Elevated Lactate (>4) and hypotension requires 30mL/kg bolus resuscitation immediately, not just maintenance fluids."
+    }
+  ]
+}

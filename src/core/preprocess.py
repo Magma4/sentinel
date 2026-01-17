@@ -5,32 +5,56 @@ from typing import List
 
 
 def trim_note(note: str) -> str:
-    """Retains only clinical keywords + context (3 lines before/after) to save tokens."""
-    if not note:
-        return note
+    """
+    Intelligently prunes clinical notes to retain safety-critical sections.
+    Uses regex to identify Assessment/Plan, Meds, and History while dropping administrative filler.
+    """
+    import re
+    if not note: return ""
 
-    keywords = [
-        "allerg", "nkda", "plan", "assessment", "discharge",
-        "stable", "improving", "worsen", "aki", "ckd", "renal",
-        "potassium", "k "
-    ]
+    # 1. Define Critical Headers (Regex)
+    # Matches: "Assessment", "Plan", "A/P", "HPI", "Meds", "Allergies"
+    headers = r"(?i)^(assessment|plan|recommendation|medication|allerg|hpi|history of present illness|impression|diagnosis)"
 
     lines = note.split('\n')
-    kept_indices = set()
+    path = []
 
-    for i, line in enumerate(lines):
-        line_lower = line.lower()
-        if any(kw in line_lower for kw in keywords):
-            # Keep context window
-            for j in range(max(0, i - 3), min(len(lines), i + 4)):
-                kept_indices.add(j)
+    # Simple Heuristic: If note is short (< 50 lines), keep all.
+    if len(lines) < 50:
+        return note
 
-    if not kept_indices:
-        # Fallback: Head of note
-        return '\n'.join(lines[:10])
+    # 2. Block Extraction
+    # Strategy: Keep first 10 lines (Metadata), then scan for blocks.
+    path.extend(lines[:10])
 
-    kept_lines = [lines[i] for i in sorted(kept_indices)]
-    return '\n'.join(kept_lines)
+    in_critical_block = False
+
+    for line in lines[10:]:
+        clean_line = line.strip()
+        if re.match(headers, clean_line):
+            in_critical_block = True
+            path.append(f"\n--- {clean_line} ---") # Explicit separator for LLM
+        elif not clean_line:
+            pass # Skip empty lines unless in block? No, keep spacing for read.
+
+        # Heuristic stop words for blocks (e.g. "Signed by", "Dictated by")
+        if re.search(r"(?i)(signed by|dictated by|electronically signed)", clean_line):
+            in_critical_block = False
+
+        if in_critical_block:
+             path.append(line)
+        else:
+            # Context preservation (keep if contains critical keywords)
+            if any(kw in clean_line.lower() for kw in ["mg", "daily", "tabs", "allergic", "reaction", "ckd", "aki", "k+"]):
+                path.append(line)
+
+    result = "\n".join(path)
+
+    # 3. Fallback check
+    if len(result) < 100: # If we pruned too much
+        return note[:2000] # Return head
+
+    return result
 
 
 def trim_labs(labs: str) -> str:

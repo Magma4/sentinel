@@ -64,7 +64,7 @@ class ClinicalNote(BaseModel):
 
 class LabResult(BaseModel):
     name: str
-    value: str # String allowing flexible formats
+    value: Any # String or Number allowing flexible formats
     unit: str
     date: str
 
@@ -96,6 +96,7 @@ class AuditContext:
 class ChatSession:
     state: ChatState = ChatState.IDLE
     history: List[ChatMessage] = field(default_factory=list)
+    suggested_replies: List[str] = field(default_factory=list)
     last_error: Optional[str] = None
     audit_fingerprint: str = ""
     context: Optional[AuditContext] = None

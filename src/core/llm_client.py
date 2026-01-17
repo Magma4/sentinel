@@ -25,9 +25,11 @@ class LocalLLMClient:
     """Interacts with local LLMs (Ollama) or Mock backend, enforcing strict JSON output."""
 
     def __init__(self, backend: str, model: str, host: Optional[str] = None):
+        import os
         self.backend = backend.lower()
         self.model = model
-        self.host = host or "http://localhost:11434"
+        # Env > Arg > Default
+        self.host = os.getenv("OLLAMA_HOST") or host or "http://localhost:11434"
 
         if self.backend not in ["mock", "ollama"]:
             raise ValueError(f"Unsupported backend: {backend}. Use 'mock' or 'ollama'.")

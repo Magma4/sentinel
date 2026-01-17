@@ -27,9 +27,14 @@ class ReviewEngineAdapter:
     """
 
     def __init__(self, backend_url: str = "http://localhost:11434", model: str = "amsaravi/medgemma-4b-it:q6"):
-        self.host = backend_url
+        import os
+        # Prioritize Environment Variable > Init Arg > Default
+        env_host = os.getenv("OLLAMA_HOST")
+        self.host = env_host if env_host else backend_url
         self.model = model
-        self.backend = "ollama" if "localhost" in backend_url else "mock"
+
+        # Check if remote or local
+        self.backend = "ollama" if "localhost" in self.host or "127.0.0.1" in self.host or env_host else "mock"
 
     def check_connection(self) -> bool:
         if self.backend == "mock": return True

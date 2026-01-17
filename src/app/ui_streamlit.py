@@ -21,7 +21,7 @@ import src.domain.models
 importlib.reload(src.domain.models) # Hot-reload schema
 
 from src.adapters.ollama_adapter import ReviewEngineAdapter
-from src.adapters.file_adapter import standardize_input
+from src.core.input_loader import standardize_input
 from src.services.audit_service import AuditService
 from src.services.image_quality_service import ImageQualityService
 from src.services.chat_service import ChatService
@@ -315,7 +315,7 @@ elif input_mode == "Upload Files":
             st.caption(f"Selected: {len(meds_files)} file(s)")
             for f in meds_files: st.caption(f"- {f.name}")
 
-    standardized_inputs = standardize_input(note_files, labs_files, meds_files)
+    standardized_inputs = standardize_input("UPLOAD", note_files, labs_files, meds_files)
     standardized_inputs["case_id"] = "USER_UPLOAD"
     standardized_inputs["quality_report"] = []
 

@@ -3,8 +3,8 @@
 This guide explains how to deploy the **SentinelMD** frontend to Streamlit Cloud while keeping your private **MedGemma** model running on your local machine (using a secure tunnel).
 
 ## Prerequisites
-1.  **Streamlit Cloud Account** (Free)
-2.  **Ngrok Account** (Free tier is fine)
+1.  **Streamlit Cloud Account**
+2.  **Ngrok Account**
 3.  **Local Machine** with Ollama running
 
 ---
@@ -63,9 +63,3 @@ Once the app is deploying (or if it fails initially), you need to tell it where 
 4.  Click **Save**. The app should auto-reload.
 
 ---
-
-## Troubleshooting
-
-*   **"Review Engine Offline"**: Check that your ngrok terminal is still running. The free tier URL changes every time you restart ngrok!
-*   **"Model not found"**: Ensure you have pulled the model locally: `ollama pull amsaravi/medgemma-4b-it:q6`.
-*   **Slow Response**: This is normal; data is traveling from Streamlit Cloud -> Your Mac -> Streamlit Cloud.

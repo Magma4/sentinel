@@ -209,3 +209,11 @@ __marimo__/
 # Evaluation Results
 results.json
 results.md
+
+# Utility Scripts
+generate_cases.py
+rename_cases.py
+
+# Assets
+Pokecut_1768559571909.png
+generate_realistic_data.py

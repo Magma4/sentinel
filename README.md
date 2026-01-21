@@ -29,7 +29,8 @@ SentinelMD serves as an intelligent, local auditor.
 ### Prerequisites
 1.  **Python 3.10+**
 2.  **Ollama**: Install from [ollama.com](https://ollama.com).
-3.  **MedGemma Model**: Pull the model:
+3.  **Tesseract OCR**: Required for image analysis (e.g., `brew install tesseract` on Mac or `apt-get install tesseract-ocr` on Linux).
+4.  **MedGemma Model**: Pull the model:
     ```bash
     ollama pull amsaravi/medgemma-4b-it:q6
     ```

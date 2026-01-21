@@ -1,3 +1,20 @@
+"""
+SentinelMD - Clinical Safety Audit Configuration & UI
+=====================================================
+
+This module serves as the main entry point for the Streamlit-based frontend.
+It provides a user-friendly clinical dashboard that:
+1.  Ingests multimodal patient data (Notes, Labs, Meds via PDF/Images/Text).
+2.  Orchestrates the 'Safety Audit' via `AuditService` and `ReviewEngineAdapter`.
+3.  Displays structured safety flags with evidence grounding.
+4.  Hosts the 'Interactive Safety Assistant' (RAG-based chat).
+
+Architecture:
+-------------
+- **Frontend**: Streamlit (Reactive UI).
+- **Backbone**: `InputLoader` (Parsing) -> `AuditService` (Logic) -> `OllamaAdapter` (Inference).
+- **State**: Manages session state for uploaded files, audit results, and chat history.
+"""
 import streamlit as st
 import json
 import os
@@ -402,38 +419,7 @@ with tab_safety:
         </div>
         """, unsafe_allow_html=True)
 
-        # Quality Review
-        if "quality_report" in standardized_inputs and standardized_inputs["quality_report"]:
-            all_issues = []
-            for qr in standardized_inputs["quality_report"]:
-                all_issues.extend(qr.get("quality_issues", []))
 
-            if not all_issues:
-                st.success("✅ **Visual Input Review**: Images appear readable (Quality Check Only)")
-            else:
-                st.warning(f"⚠️ **Visual Input Review**: {len(all_issues)} potential readability issues detected")
-
-            with st.expander("Show Quality Details (Deterministic)", expanded=False):
-                st.caption("Quality check only. No diagnosis. OCR used for content.")
-
-                for qr in standardized_inputs["quality_report"]:
-                    st.markdown(f"**{qr['filename']}**")
-                    if qr["quality_issues"]:
-                        for issue in qr["quality_issues"]: st.markdown(f"- 🔴 {issue}")
-                    if qr["workflow_risks"]:
-                        for risk in qr["workflow_risks"]: st.markdown(f"- 🟠 {risk}")
-                    if not qr["quality_issues"] and not qr["workflow_risks"]:
-                        st.markdown("- ✅ Readable")
-                    for obs in qr.get("visual_observations", []):
-                        st.markdown(f"- *{obs}*")
-                    st.divider()
-
-         # Missing Info
-        questions = getattr(report, 'missing_info_questions', [])
-        if questions:
-            st.markdown("#### ❓ Missing Information / Clarifications")
-            for q in questions:
-                 st.info(q)
 
         # Flags Display
         if not report.flags:
@@ -499,7 +485,38 @@ with tab_safety:
                         """)
 
         st.divider()
+        # Quality Review
+        if "quality_report" in standardized_inputs and standardized_inputs["quality_report"]:
+            all_issues = []
+            for qr in standardized_inputs["quality_report"]:
+                all_issues.extend(qr.get("quality_issues", []))
 
+            if not all_issues:
+                st.success("✅ **Visual Input Review**: Images appear readable (Quality Check Only)")
+            else:
+                st.warning(f"⚠️ **Visual Input Review**: {len(all_issues)} potential readability issues detected")
+
+            with st.expander("Show Quality Details (Deterministic)", expanded=False):
+                st.caption("Quality check only. No diagnosis. OCR used for content.")
+
+                for qr in standardized_inputs["quality_report"]:
+                    st.markdown(f"**{qr['filename']}**")
+                    if qr["quality_issues"]:
+                        for issue in qr["quality_issues"]: st.markdown(f"- 🔴 {issue}")
+                    if qr["workflow_risks"]:
+                        for risk in qr["workflow_risks"]: st.markdown(f"- 🟠 {risk}")
+                    if not qr["quality_issues"] and not qr["workflow_risks"]:
+                        st.markdown("- ✅ Readable")
+                    for obs in qr.get("visual_observations", []):
+                        st.markdown(f"- *{obs}*")
+                    st.divider()
+
+         # Missing Info
+        questions = getattr(report, 'missing_info_questions', [])
+        if questions:
+            st.markdown("#### ❓ Missing Information / Clarifications")
+            for q in questions:
+                 st.info(q)
         # Assistant (Chat)
         st.markdown("### 💬 Safety Review Assistant")
 

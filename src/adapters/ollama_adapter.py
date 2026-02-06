@@ -62,6 +62,92 @@ class ReviewEngineAdapter:
 
         return self._call_engine(instruction, engine_options, output_format="text")
 
+    def run_billing_analysis(self, note_text: str) -> Dict[str, Any]:
+        """Runs ICD-10 and CPT analysis to suggest billing levels."""
+        if self.backend == "mock":
+             return {
+                 "icd10": [{"code": "I10", "desc": "Essential (primary) hypertension"}],
+                 "cpt": {"code": "99214", "desc": "Office visit, moderate complexity", "level": 4},
+                 "opportunity": {
+                     "found": True,
+                     "potential_code": "99215",
+                     "revenue_impact": "+$40",
+                     "missing_elements": ["Document interpretation of labs (e.g. creatinine trend)", "Note total time > 40 mins"]
+                 }
+             }
+
+        prompt = f"""
+You are a Medical Billing Expert (CPC Certified) reviewing a clinical note.
+Analyze the note for ICD-10 diagnosis codes and CPT Evaluation & Management (E/M) levels.
+
+Determine the Current CPT Level (99202-99205 or 99212-99215) and identify if the documentation supports a higher level with minimal additions.
+
+OUTPUT JSON FORMAT:
+{{
+  "icd10": [{{"code": "string", "desc": "string"}}],
+  "cpt": {{"code": "string", "desc": "string", "level": integer}},
+  "opportunity": {{
+    "found": boolean,
+    "potential_code": "string (e.g. 99215)",
+    "revenue_impact": "string (e.g. +$40)",
+    "missing_elements": ["list of specific things to document to reach higher level"]
+  }}
+}}
+
+CLINICAL NOTE:
+{note_text}
+"""
+        return self._call_engine(prompt, {"num_predict": 1024}, output_format="json")
+
+    def generate_patient_instructions(self, note_text: str, language: str = "English", safety_flags: list = None) -> Dict[str, Any]:
+        """Generates patient-friendly instructions in specified language."""
+        if self.backend == "mock":
+             return {
+                 "summary": "You visited today because of high blood pressure.",
+                 "key_takeaways": ["Your heart health is stable", "Diet changes are needed"],
+                 "medication_instructions": ["Take Lisinopril 10mg once a day with breakfast"],
+                 "terminology_map": [{"term": "Hypertension", "simple": "High Blood Pressure"}]
+             }
+
+        lang_instruction = "CRITICAL: OUTPUT ALL TEXT VALUES IN SPANISH (Español). Do not output English." if "Spanish" in language else "Output in English."
+
+        flags_context = ""
+        if safety_flags and len(safety_flags) > 0:
+            flags_context = (
+                f"🚨 URGENT SAFETY ALERT 🚨\n"
+                f"The following risks were detected: {str(safety_flags)}\n"
+                f"INSTRUCTIONS:\n"
+                f"1. SUMMARY: If the doctor planned to start a flagged drug, DELETE that part of the plan. Replace it with: 'We need to double-check [Drug Name] for safety before starting.' Do NOT say both.\n"
+                f"2. MEDICATIONS: List flagged drugs ONLY as '⚠️ [Drug Name]: ON HOLD (Talk to Doctor)'. Do not duplicate.\n"
+            )
+
+        prompt = f"""
+You are a fastidious, compassionate doctor writing a 'Take Home Summary' for your patient.
+Your goal is to explain their visit, diagnosis, and plan in simple, 5th-grade reading level language.
+
+{lang_instruction}
+
+{flags_context}
+
+TASK:
+1. Summarize the visit {language}.
+2. Provide a 'Medical Decoder' for complex terms (e.g. Hypertension -> High Blood Pressure).
+3. List 3 key takeaways.
+4. Provide simple medication instructions. **CRITICAL: CHECK SAFETY CONTEXT FIRST.**
+
+OUTPUT JSON FORMAT:
+{{
+  "summary": "string (warm tone, {language})",
+  "key_takeaways": ["string (in {language})", "string (in {language})"],
+  "medication_instructions": ["string (in {language})", "string (in {language})"],
+  "terminology_map": [{{"term": "Medical Jargon (Original)", "simple": "Simple Explanation ({language}) "}}]
+}}
+
+CLINICAL NOTE:
+{note_text}
+"""
+        return self._call_engine(prompt, {"num_predict": 1024}, output_format="json")
+
     def run_structured_review(self, instruction: str, engine_options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Runs safety assessment returning strict JSON."""
         if self.backend == "mock":
@@ -97,7 +183,10 @@ class ReviewEngineAdapter:
             "prompt": instruction,
             "stream": False,
             "options": options,
-            "stop": ["```", "<start_of_turn>"]
+            "stop": ["```", "<start_of_turn>"],
+            # PROMPT CACHING: Keep model loaded for 10 minutes
+            # Speeds up repeated calls by reusing loaded model weights
+            "keep_alive": "10m"
         }
 
         if output_format == "json":

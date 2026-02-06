@@ -115,3 +115,18 @@ Labs:
         except Exception as e:
             logger.error(f"Domain Mapping Error: {e}")
             return None
+    def execute_billing_analysis(self, note_text: str) -> Dict[str, Any]:
+        """Runs the Revenue Retina (billing analysis) pipeline."""
+        try:
+            return self.engine.run_billing_analysis(note_text)
+        except Exception as e:
+            logger.error(f"Billing analysis failed: {e}")
+            return {"error": str(e)}
+
+    def get_patient_instructions(self, note_text: str, language: str = "English", safety_flags: list = None) -> Dict[str, Any]:
+        """Runs the Patient Translator pipeline."""
+        try:
+            return self.engine.generate_patient_instructions(note_text, language, safety_flags)
+        except Exception as e:
+            logger.error(f"Patient instructions failed: {e}")
+            return {"error": str(e)}

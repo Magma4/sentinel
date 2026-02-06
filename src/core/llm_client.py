@@ -67,7 +67,7 @@ class LocalLLMClient:
         }
 
     def _call_ollama(self, prompt: str, llm_options: Optional[Dict[str, Any]] = None, output_format: str = "json") -> Any:
-        """Calls Ollama API with retries and JSON repair."""
+        """Calls Ollama API with retries, JSON repair, and prompt caching via keep_alive."""
         url = f"{self.host}/api/generate"
 
         # Defaults optimizing for speed
@@ -86,7 +86,10 @@ class LocalLLMClient:
             "prompt": prompt,
             "stream": False,
             "options": options,
-            "stop": ["```", "<start_of_turn>"]
+            "stop": ["```", "<start_of_turn>"],
+            # PROMPT CACHING: Keep model loaded in memory for 10 minutes
+            # This enables KV cache reuse for repeated prompts with same prefix
+            "keep_alive": "10m"
         }
 
         if output_format == "json":

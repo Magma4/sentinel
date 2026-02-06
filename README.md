@@ -20,7 +20,8 @@ SentinelMD serves as an intelligent, local auditor.
 ## Key Features
 1.  **Automated Safety Review**: Instantly flags HIGH/MEDIUM risks (e.g., Allergies, Med-Lab Conflicts).
 2.  **Strict Grounding**: Every flag provides "Evidence Quotes" from the source document to prevent hallucinations.
-3.  **Interactive Safety Assistant**: A Chatbot that lets clinicians ask follow-up questions (e.g., *"Why is this lab value concerning?"*) and get evidence-backed answers.
+3.  **Interactive Safety Assistant**: A Chatbot that lets clinicians ask follow-up questions.
+4.  **Voice Dictation 🎙️**: Recording clinical notes with **Whisper Large-v3** (Offline), accelerated by **Apple MLX** for instant, high-accuracy transcription.
 
 ---
 
@@ -68,14 +69,21 @@ graph TD
 
     subgraph "Edge Device (Offline)"
         direction TB
-        UI -->|Uploads: PDF/Images/Text| Ingest[Input Pipeline]
-        Ingest -->|OCR & Parsing| Context[Unified Patient Context]
+
+        %% Inputs
+        UI -->|Voice Input| Mic[Microphone]
+        Mic -->|Audio| Whisper[Whisper Large-v3 (MLX)]
+        Whisper -->|Transcribed Text| Context[Unified Patient Context]
+
+        UI -->|Uploads: PDF/Images| Ingest[Input Pipeline]
+        Ingest -->|OCR & Parsing| Context
 
         Context -->|Context Window| Logic[Safety Auditor]
 
-        subgraph "Local Inference"
+        subgraph "Local Inference Engine"
             Logic <-->|Prompt| Ollama[Ollama Server]
             Ollama -.->|Weights| Model[MedGemma 4B]
+            Whisper -.->|Weights| WModel[Apple MLX Neural Engine]
         end
 
         Logic -->|JSON Report| UI
@@ -85,6 +93,7 @@ graph TD
 *   **Frontend**: Streamlit (Python)
 *   **Inference**: Ollama (Local)
 *   **Model**: MedGemma (4B Quantized)
+*   **Speech**: OpenAI Whisper (Large-v3 via Apple MLX)
 *   **OCR**: Tesseract & PyPDF
 
 ## Disclaimer

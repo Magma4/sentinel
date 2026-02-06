@@ -1,0 +1,2 @@
+timestamp,case_id,category,explanation,rating
+2026-01-31T01:21:43.903864,Pt_Record_MRN_001_Hypertension,Allergy,"Patient is prescribed Amoxicillin, which is a penicillin-class antibiotic. The patient has a documented Sulfa allergy in their chart. This presents a potential medication-allergy conflict that warrants clinical review.",HELPFUL

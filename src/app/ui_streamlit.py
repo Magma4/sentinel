@@ -35,7 +35,7 @@ import logging
 
 # Module Imports
 import src.domain.models
-importlib.reload(src.domain.models) # Hot-reload schema
+# importlib.reload(src.domain.models) # Hot-reload schema removed for production stability
 
 from src.adapters.ollama_adapter import ReviewEngineAdapter
 from src.core.input_loader import standardize_input
@@ -43,7 +43,10 @@ from src.services.audit_service import AuditService
 from src.services.image_quality_service import ImageQualityService
 from src.services.chat_service import ChatService
 from src.domain.models import ChatSession, ChatMessage, PatientRecord, SafetyFlag
+from src.domain.models import ChatSession, ChatMessage, PatientRecord, SafetyFlag
 from src.eval.run_eval import run_eval_pipeline
+from src.services.transcription_service import TranscriptionService
+import io
 
 # Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -161,95 +164,91 @@ with st.sidebar:
     st.caption("Clinical Safety Copilot")
     st.markdown("---")
 
-    # Input Mode
-    input_mode = st.radio(
-        "Input Mode",
-        ["Demo Cases", "Paste Text", "Upload Files"],
-        help="Select input method."
+    # Workflow Selection
+    input_mode_map = {
+        "Load Reference Case": "Demo Cases",
+        "Clinical Dictation": "Paste Text",
+        "Upload Medical Records": "Upload Files"
+    }
+
+    workflow = st.radio(
+        "Workflow",
+        list(input_mode_map.keys()),
+        help="Select clinical workflow."
     )
+    input_mode = input_mode_map[workflow]
 
     st.markdown("---")
 
-    # Demo Selector
+    # Case Selector (if applicable)
     selected_case_file = None
     if input_mode == "Demo Cases":
         DATA_DIR = "data/synthetic"
         cases = sorted([f for f in os.listdir(DATA_DIR) if f.endswith(".json")])
-        selected_case_file = st.selectbox("Select Case", cases, index=0)
+        display_cases = [c.replace(".json", "").replace("_"," ").title() for c in cases]
+        sel_idx = st.selectbox("Select Patient Record", display_cases, index=0)
+        selected_case_file = cases[display_cases.index(sel_idx)]
 
-    run_btn = st.button("Run Safety Review", type="primary", use_container_width=True)
-
-    # System Status
-    st.markdown("---")
-    with st.expander("🔧 System Status", expanded=True):
+    # Advanced / Technical Section (Collapsed by default)
+    with st.expander("🛠️ Advanced Configuration", expanded=False):
         # 1. Review Engine
         model_map = {
-            "MedGemma 4B": "amsaravi/medgemma-4b-it:q6",
-            "Mock Model (Test)": "mock-model"
+            "Standard Safety Engine": "amsaravi/medgemma-4b-it:q6",
+            "Test Mode (Mock)": "mock-model"
         }
 
         display_name = st.selectbox(
-            "Local Review Engine",
+            "Inference Engine",
             options=list(model_map.keys()),
-            index=0,
-            help="Select local inference model."
+            index=0
         )
         selected_model = model_map[display_name]
         st.session_state.backend_type = "ollama"
 
-        # Init Services
-        if "audit_service" not in st.session_state or st.session_state.current_model != selected_model:
-            with st.spinner("Initializing Engine..."):
-                try:
-                    adapter = ReviewEngineAdapter(model=selected_model)
+        # Init Services (Silent)
+        # Force re-init to pick up new methods
+        if "audit_service" not in st.session_state or st.session_state.current_model != selected_model or True: # Force True for hotfix
+             try:
+                import importlib
+                import src.services.audit_service as audit_svc_module
+                import src.adapters.ollama_adapter as ollama_adapt_module
 
-                    if not adapter.check_connection():
-                         st.error("⚠️ Engine Offline. Run `ollama serve`.")
-                    else:
-                         st.success(f"✅ Connected: {selected_model}")
+                # Force reload modules to ensure new methods are picked up
+                importlib.reload(audit_svc_module)
+                importlib.reload(ollama_adapt_module)
 
-                    st.session_state.audit_service = AuditService(adapter)
-                    st.session_state.chat_service = ChatService(adapter)
-                    st.session_state.current_model = selected_model
-                    st.session_state.inference_cache = {}
+                # Re-import classes from reloaded modules
+                from src.services.audit_service import AuditService
+                from src.adapters.ollama_adapter import ReviewEngineAdapter
 
-                except Exception as e:
-                    st.error(f"Init Failed: {e}")
+                adapter = ReviewEngineAdapter(model=selected_model)
+                if not adapter.check_connection():
+                     st.error("⚠️ Engine Offline. Run `ollama serve`.")
+                else:
+                     pass
 
-        # 2. Tech Specs
-        st.markdown(f"""
-        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
-        • <b>OCR Engine:</b> Local (Tesseract)<br>
-        • <b>Privacy:</b> 100% Offline<br>
-        • <b>Visual Review:</b> Deterministic Only
-        </div>
-        """, unsafe_allow_html=True)
+                st.session_state.audit_service = AuditService(adapter)
+                st.session_state.chat_service = ChatService(adapter)
+                st.session_state.current_model = selected_model
+                st.session_state.inference_cache = {}
+             except Exception as e:
+                st.error(f"Init Failed: {e}")
 
-    # Options
-    one_call_mode = st.checkbox("🎯 One-Call Demo Mode", value=False, help="Fast rule-based extraction.")
-    st.session_state.one_call_mode = one_call_mode
+        st.caption("Privacy: 100% Offline | OCR: Local")
 
-    st.session_state.max_flags = 10
-    st.session_state.extract_opts = {"num_ctx": 4096, "num_predict": 350, "temperature": 0.0}
-    st.session_state.audit_opts = {"num_ctx": 4096, "num_predict": 450, "temperature": 0.0}
+        # Options
+        st.session_state.one_call_mode = st.checkbox("Fast Mode", value=False)
+        st.session_state.max_flags = 10
 
-    with st.expander("⚙️ Settings"):
-        st.caption(f"**Extract**: ctx={st.session_state.extract_opts['num_ctx']}, tokens={st.session_state.extract_opts['num_predict']}")
-        st.caption(f"**Audit**: ctx={st.session_state.audit_opts['num_ctx']}, tokens={st.session_state.audit_opts['num_predict']}")
-        st.caption(f"**Max Flags**: {st.session_state.max_flags}")
-
-    with st.expander("⏱️ Metrics", expanded=True):
+        # Metrics
         if "last_report" in st.session_state:
             report = st.session_state.last_report
             ext_time = report.metadata.get("extract_runtime", 0)
             aud_time = report.metadata.get("audit_runtime", 0)
-            total_time = report.metadata.get("total_runtime", ext_time + aud_time)
+            st.text(f"Latency: {(ext_time + aud_time):.2f}s")
 
-            st.markdown(f"**Total**: `{total_time:.2f}s`")
-            st.text(f"Extract: {ext_time:.2f}s")
-            st.text(f"Audit:   {aud_time:.2f}s")
-        else:
-            st.caption("No metrics available.")
+    # Simple Status Indicator
+    st.success("✅ System Ready (Secure)")
 
 # Main Layout
 st.warning("⚠️ **ADVISORY ONLY**: Identifying safety risks. Not a substitute for clinical judgment.")
@@ -268,7 +267,17 @@ quality_report = None
 # Input Handling
 if input_mode == "Demo Cases":
     file_source_type = "DEMO"
-    st.header(f"Mode: Demo Case ({selected_case_file})")
+    # Patient Banner
+    pt_id_str = selected_case_file.replace(".json", "").replace("_"," ").replace("Pt Record", "").strip()
+    if pt_id_str.startswith("Mrn"): pt_id_str = pt_id_str.replace("Mrn", "MRN:")
+
+    st.markdown(f"""
+    <div style="background-color: transparent; border-bottom: 2px solid #f0f2f6; padding-bottom: 10px; margin-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 2.2rem;">Patient Record</h1>
+        <p style="color: #666; font-size: 1.1rem; margin: 0;">Case ID: <b>{pt_id_str}</b></p>
+    </div>
+    """, unsafe_allow_html=True)
+
     current_case_path = os.path.join(DATA_DIR, selected_case_file)
     with open(current_case_path, "r") as f:
         case_data = json.load(f)
@@ -284,16 +293,73 @@ if input_mode == "Demo Cases":
     }
 
 elif input_mode == "Paste Text":
-    st.header("Mode: Paste Clinical Text")
-    st.caption("Enter clinical data below.")
+    st.header("Clinical Documentation")
+    st.caption("Dictate or paste clinical notes below.")
 
     col_p1, col_p2, col_p3 = st.columns(3)
-    with col_p1:
-        note_in = st.text_area("Clinical Note", height=300, placeholder="Example:\nPt presented with weakness...\nPMH: CKD, HTN...")
-    with col_p2:
-        labs_in = st.text_area("Labs", height=300, placeholder="Example:\nPotassium: 6.0 mmol/L\nCreatinine: 2.1 mg/dL")
-    with col_p3:
-        meds_in = st.text_area("Medications", height=300, placeholder="Example:\nLisinopril 10mg daily\nSpironolactone 25mg daily")
+
+    # Voice Dictation (Optional - populates Clinical Note)
+    st.caption("💡 **Voice Input**: Speak your full clinical note including medications and labs. The AI will parse everything automatically.")
+    audio_val = st.audio_input("🎙️ Dictate")
+    if audio_val:
+        # Prevent re-transcription if audio hasn't changed
+        if "last_audio" not in st.session_state or st.session_state.last_audio != audio_val:
+            st.session_state.last_audio = audio_val
+            with st.spinner("Transcribing... (Apple MLX Accelerated - M4 Native)"):
+                try:
+                    # Initialize Service (Singleton pattern via session_state)
+                    # Renamed key to force re-init after code changes
+                    if "transcription_service_mlx" not in st.session_state:
+                         st.session_state.transcription_service_mlx = TranscriptionService(model_size="large-v3")
+
+                    # Streamlit audio_input gives a BytesIO-like object.
+                    # faster-whisper needs a file path or binary stream.
+                    # We'll save it to a temp file to be safe and compatible.
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+                        tmp_file.write(audio_val.read())
+                        tmp_path = tmp_file.name
+
+                    # Transcribe with Medical Context Prompt
+                    # This primes the model to output clinical terminology.
+                    medical_prompt = "Clinical note. Patient history, symptoms, medications, interactions, diagnosis, cardiology, oncology, daily dosage."
+                    text = st.session_state.transcription_service_mlx.transcribe(tmp_path, initial_prompt=medical_prompt)
+
+                    # Cleanup
+                    os.remove(tmp_path)
+
+                    st.session_state.note_in_val = text
+                    st.toast("✅ Transcription Complete!", icon="🎙️")
+                    st.rerun()  # Force clean redraw to prevent UI ghosting
+
+                except Exception as e:
+                    st.error(f"Transcription Error: {e}")
+
+    # Sync Text Area with Session State
+    if "note_in_val" not in st.session_state:
+        st.session_state.note_in_val = ""
+
+    # Check if voice was used (transcription exists)
+    has_voice_input = bool(st.session_state.note_in_val.strip())
+
+    if has_voice_input:
+        # Unified view for voice dictation
+        st.markdown("### 📝 Your Dictation")
+        st.info("💡 Your voice recording has been transcribed below. All medications, labs, and clinical context mentioned will be analyzed together.")
+        note_in = st.text_area("Full Clinical Context", height=250, key="note_in_val",
+                               help="Edit your dictation if needed. The AI will parse medications and labs automatically.")
+        labs_in = ""
+        meds_in = ""
+    else:
+        # Structured input view (no voice yet)
+        with col_p1:
+            note_in = st.text_area("Clinical Note", height=300,
+                                 placeholder="Example:\nPt presented with weakness...\nPMH: CKD, HTN...",
+                                 key="note_in_val")
+        with col_p2:
+            labs_in = st.text_area("Labs", height=300, placeholder="Example:\nPotassium: 6.0 mmol/L\nCreatinine: 2.1 mg/dL")
+        with col_p3:
+            meds_in = st.text_area("Medications", height=300, placeholder="Example:\nLisinopril 10mg daily\nSpironolactone 25mg daily")
 
     # Bypass Adapter (Raw Strings)
     standardized_inputs = {
@@ -306,8 +372,8 @@ elif input_mode == "Paste Text":
     standardized_inputs["images"] = []
 
 elif input_mode == "Upload Files":
-    st.header("Mode: Upload Files")
-    st.caption("Supports TXT, PDF, CSV. Multiple files merged.")
+    st.header("Medical Record Import")
+    st.caption("Import PDF, CSV, or Image files. Patient context is automatically unified.")
 
     col_u1, col_u2, col_u3 = st.columns(3)
     with col_u1:
@@ -352,11 +418,38 @@ elif input_mode == "Upload Files":
 
     # (PDF Logic kept as is for now)
 
+    # --- PROGRESSIVE UI: Immediate Feedback ---
+    if note_files or labs_files or meds_files:
+        n_len = len(standardized_inputs["note_text"].split())
+        l_len = len(standardized_inputs["labs_text"].splitlines())
+        m_len = len(standardized_inputs["meds_text"].split(',')) if standardized_inputs["meds_text"] else 0
+
+        # Simple extraction heuristics for display
+        st.markdown("### ⚡ Data Extraction Summary")
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Clinical Note", f"{n_len} words", delta="Ready" if n_len > 0 else "Empty")
+        k2.metric("Lab Items", f"{l_len} lines", delta="Ready" if l_len > 0 else "Empty")
+        k3.metric("Medications", f"{m_len} items", delta="Ready" if m_len > 0 else "Empty")
+
+        q_pass = True
+        if "quality_report" in standardized_inputs and standardized_inputs["quality_report"]:
+             q_issues = sum(len(qr['quality_issues']) for qr in standardized_inputs["quality_report"])
+             q_pass = q_issues == 0
+
+        k4.metric("Scan Quality", "Optimal" if q_pass else "Review Needed", delta_color="normal" if q_pass else "inverse")
+        st.info("👆 Review the patient summary above. If correct, proceed to **Safety Review**.")
+        st.divider()
+    # ------------------------------------------
+
 # Tabs
-tab_safety, tab_inputs, tab_eval = st.tabs(["🛡️ Safety Review", "📄 Clinical Inputs", "📊 Evaluation"])
+tab_safety, tab_inputs, tab_eval = st.tabs(["🛡️ Safety Analysis", "📄 Patient Record", "📋 History & Export"])
 
 # Tab 1: Safety Review
 with tab_safety:
+    col_act, col_info = st.columns([1, 4])
+    with col_act:
+        run_btn = st.button("▶️ Run Safety Review", type="primary", use_container_width=True, key="btn_run_safety")
+
     if run_btn:
         # Validation
         if not standardized_inputs["note_text"] and not standardized_inputs["meds_text"] and not standardized_inputs["labs_text"]:
@@ -378,8 +471,9 @@ with tab_safety:
                 st.session_state.last_report = cached_data["report"]
                 st.info("⚡ Analysis loaded from cache")
             else:
-                with st.spinner("Running Safety Review (Local Engine)..."):
+                with st.status("🚀 Running Safety Review (Local Engine)...", expanded=True) as status:
                     t0 = time.time()
+                    # status.write("Extracting clinical entities...") # Optional progress steps
 
                     note_text = standardized_inputs["note_text"]
                     labs_text = standardized_inputs["labs_text"]
@@ -390,9 +484,26 @@ with tab_safety:
                         note_text, labs_text, meds_text
                     )
 
+                    status.update(label="✅ Analysis Complete", state="complete", expanded=False)
+
                     if report:
                         st.session_state.last_report = report
                         st.session_state.inference_cache[cache_key] = {"report": report}
+
+                        # Track in session history
+                        if "review_history" not in st.session_state:
+                            st.session_state.review_history = []
+                        from datetime import datetime
+                        st.session_state.review_history.append({
+                            "timestamp": datetime.now().strftime("%I:%M %p"),
+                            "case_id": standardized_inputs.get("case_id", "Unknown"),
+                            "input_preview": (note_text[:80] + "...") if len(note_text) > 80 else note_text,
+                            "flag_count": len(report.flags),
+                            "max_severity": max([f.severity.value if hasattr(f.severity, 'value') else str(f.severity) for f in report.flags], default="NONE"),
+                            "report": report
+                        })
+
+                        st.rerun()  # Force clean redraw to prevent ghosting
                     else:
                         st.error("Safety Review Warning: Engine execution failed.")
 
@@ -410,14 +521,14 @@ with tab_safety:
             sorted_flags = sorted(report.flags, key=lambda x: order.get(get_sev(x), 0), reverse=True)
             max_severity = get_sev(sorted_flags[0])
 
-        st.markdown(f"""
-        <div class="summary-card">
-            <h3>Audit Summary</h3>
-            <p><b>{flag_count}</b> Safety Flag(s) Identified</p>
-            <p>Highest Severity: <b>{max_severity}</b></p>
-            <p style="color: var(--text-std); font-size: 0.9em;">{report.summary}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        # Dashboard Metrics
+        st.markdown(f"### Audit Summary")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Safety Flags", flag_count, delta="Issues Found" if flag_count > 0 else "Clean", delta_color="inverse")
+        m2.metric("Highest Severity", max_severity, delta="Risk Level" if max_severity!="NONE" else "Safe", delta_color="inverse")
+        m3.metric("Review Confidence", f"{report.confidence_score*100:.0f}%", "AI Estimate")
+
+        st.info(f"**Analysis**: {report.summary}")
 
 
 
@@ -438,12 +549,50 @@ with tab_safety:
                     display_cat = "Medication-Allergy Conflict"
 
                 with st.container():
-                    st.markdown(f"""
-                    <div class="{css_class} severity-block">
-                        <h4>[{sev_val}] {display_cat}</h4>
-                        <p><b>{flag.explanation}</b></p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Layout: Explanation (Let) | Buttons (Right)
+                    f_col1, f_col2 = st.columns([0.85, 0.15])
+
+                    with f_col1:
+                        st.markdown(f"""
+                        <div class="{css_class} severity-block">
+                            <h4>[{sev_val}] {display_cat}</h4>
+                            <p><b>{flag.explanation}</b></p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    with f_col2:
+                         # Feedback Buttons
+                         safe_key = hashlib.md5(flag.explanation.encode()).hexdigest()[:8]
+
+                         def save_feedback(rating, expl, cat):
+                             import csv
+                             from datetime import datetime
+
+                             fb_dir = os.path.join(project_root, "data", "feedback")
+                             os.makedirs(fb_dir, exist_ok=True)
+                             fb_file = os.path.join(fb_dir, "user_feedback.csv")
+
+                             file_exists = os.path.isfile(fb_file)
+
+                             with open(fb_file, "a", newline="") as f:
+                                 writer = csv.writer(f)
+                                 if not file_exists:
+                                     writer.writerow(["timestamp", "case_id", "category", "explanation", "rating"])
+
+                                 writer.writerow([
+                                     datetime.now().isoformat(),
+                                     standardized_inputs.get("case_id", "UNKNOWN"),
+                                     cat,
+                                     expl,
+                                     rating
+                                 ])
+                             st.toast(f"Feedback Saved: {rating}!", icon="💾")
+
+                         if st.button("👍", key=f"up_{safe_key}", help="This flag is helpful/accurate"):
+                             save_feedback("HELPFUL", flag.explanation, display_cat)
+
+                         if st.button("👎", key=f"down_{safe_key}", help="False Positive / Not Useful"):
+                             save_feedback("FALSE_POSITIVE", flag.explanation, display_cat)
 
                     with st.expander("Show Evidence", expanded=True):
                         st.caption("Verbatim quotes from record:")
@@ -456,6 +605,7 @@ with tab_safety:
                              elif src == "LABS": badge_color = "var(--badge-labs)"
                              elif src == "MEDS": badge_color = "var(--badge-meds)"
 
+
                              st.markdown(f"""
                              <div class="evidence-block">
                                 <span style="background-color: {badge_color}; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em; margin-right: 5px;">{src}</span>
@@ -463,26 +613,57 @@ with tab_safety:
                              </div>
                              """, unsafe_allow_html=True)
 
-                    with st.expander("🔍 Click for Detailed Logic Breakdown"):
-                        # Get Primary Evidence Details
-                        ev_source = flag.evidence[0].source if flag.evidence else "General"
-                        ev_quote = flag.evidence[0].quote if flag.evidence else "Entire Case Context"
 
-                        st.markdown(f"""
-                        **1. Evidence Found**
-                        - **Source**: `{ev_source}`
-                        - **Content**: *"{ev_quote}"*
 
-                        **2. Clinical Reasoning**
-                        {flag.explanation}
 
-                        **3. Risk Analysis**
-                        - **Category**: {display_cat}
-                        - **Severity**: {sev_val}
 
-                        **4. Recommendation**
-                        {flag.recommendation if flag.recommendation else "Review clinical guidelines."}
-                        """)
+        # ---------------------------------------------------------
+        # 🗣️ Patient Translator (After-Activity Summary)
+        # ---------------------------------------------------------
+        st.divider()
+        st.markdown("### 🗣️ Patient Translator")
+
+        pt_lang = st.radio("Language", ["🇺🇸 English", "🇪🇸 Spanish"], horizontal=True, label_visibility="collapsed")
+        pt_lang_code = "English" if "English" in pt_lang else "Spanish"
+
+        if st.button(f"Generate Patient Instructions ({pt_lang_code})", key="btn_pt_gen"):
+            with st.spinner("Writing simple instructions..."):
+                note_text = standardized_inputs["note_text"]
+
+                # Extract Safety Flags Context
+                safety_context = []
+                if "last_report" in st.session_state and st.session_state.last_report:
+                    # Simplify flags for context window efficiency
+                    safety_context = [f"{f.category}: {f.explanation}" for f in st.session_state.last_report.flags]
+
+                pt_data = st.session_state.audit_service.get_patient_instructions(note_text, pt_lang_code, safety_context)
+                st.session_state.last_patient_instructions = pt_data
+
+        if "last_patient_instructions" in st.session_state:
+            pt = st.session_state.last_patient_instructions
+            if "error" in pt:
+                st.error(pt["error"])
+            else:
+                st.markdown(f"#### 📝 Take-Home Summary ({pt_lang_code})")
+                st.info(f"**Doctor Note:** {pt.get('summary', '')}")
+
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown("**📌 Key Takeaways**")
+                    for k in pt.get("key_takeaways", []):
+                        st.markdown(f"- {k}")
+
+                with c2:
+                    st.markdown("**💊 Medications**")
+                    for m in pt.get("medication_instructions", []):
+                        st.markdown(f"- {m}")
+
+                # Medical Decoder
+                if pt.get("terminology_map"):
+                    with st.expander("📖 Medical Decoder (Terms Explained)", expanded=False):
+                        for term in pt["terminology_map"]:
+                            st.markdown(f"**{term.get('term')}** → _{term.get('simple')}_")
+
 
         st.divider()
         # Quality Review
@@ -518,120 +699,7 @@ with tab_safety:
             for q in questions:
                  st.info(q)
         # Assistant (Chat)
-        st.markdown("### 💬 Safety Review Assistant")
-
-        if "chat_session" not in st.session_state:
-            st.session_state.chat_session = ChatSession()
-
-        # Backward Compatibility: Ensure suggested_replies exists if session is stale
-        if not hasattr(st.session_state.chat_session, "suggested_replies"):
-            st.session_state.chat_session.suggested_replies = []
-
-        # Reset session if audit changed (only if run_btn was pressed recently)
-        # Note: We rely on the fact that if report exists, we can chat.
-
-        # State Management: Init
-        if not report:
-             st.info("Run a Safety Review to enable the assistant.")
-        else:
-            # 1. State Update
-            audit_dict = report.model_dump()
-            # Create meaningful context for the assistant
-            raw_note = standardized_inputs.get('note_text', '')
-            # Take safe header/context (first 2k chars) to capture demographics + HPI
-            context_snippet = raw_note[:2000] + ("..." if len(raw_note) > 2000 else "")
-            input_summary_txt = f"Clinical Note Content:\n{context_snippet}"
-
-            st.session_state.chat_session = st.session_state.chat_service.reset_session(
-                st.session_state.chat_session,
-                audit_dict,
-                input_summary_txt
-            )
-
-            # 2. Chat Layout (Height constrained container)
-            chat_container = st.container(height=500)
-
-            with chat_container:
-                # Render History
-                for msg in st.session_state.chat_session.history:
-                    if msg.role == "user":
-                        # Custom User Bubble (Right Aligned)
-                        st.markdown(f"""
-                        <div style="display: flex; justify-content: flex-end; align-items: flex-start; margin: 10px 0;">
-                            <div style="background-color: #007bff; color: white; padding: 10px 15px; border-radius: 15px 15px 0 15px; margin-right: 10px;">
-                                {msg.content}
-                            </div>
-                            <div style="font-size: 24px; margin-top: -5px;">🧑‍⚕️</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        # Standard Assistant Bubble (Left)
-                        st.markdown(f"""
-                        <div style="display: flex; justify-content: flex-start; align-items: flex-start; margin: 10px 0;">
-                            <div style="font-size: 24px; margin-top: -5px; margin-right: 10px;">🛡️</div>
-                            <div style="background-color: rgba(128,128,128,0.1); padding: 10px 15px; border-radius: 0 15px 15px 15px; color: var(--text-std);">
-                                {msg.content}
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-            # 3. Suggested Replies (Chips)
-            # Only show if no pending input and we have suggestions
-            query = None
-            if st.session_state.chat_session.suggested_replies:
-                st.write("") # Spacer
-                cols = st.columns(len(st.session_state.chat_session.suggested_replies))
-                for i, chip_text in enumerate(st.session_state.chat_session.suggested_replies):
-                    if cols[i].button(chip_text, key=f"chip_{len(st.session_state.chat_session.history)}_{i}"):
-                        query = chip_text
-
-            # 4. Chat Input
-            if user_input := st.chat_input("Ask about safety flags..."):
-                query = user_input
-
-            # 5. Execution Loop
-            if query:
-                # Add User Message
-                st.session_state.chat_session.history.append(ChatMessage(role="user", content=query))
-                st.session_state.chat_session.suggested_replies = [] # Clear chips
-                st.rerun()
-
-            # Handle Response Generation (post-rerun)
-            if st.session_state.chat_session.history and st.session_state.chat_session.history[-1].role == "user":
-                with chat_container:
-
-                     with st.chat_message("assistant", avatar="🛡️"):
-                        # Visual "thinking" indicator
-                        think_box = st.empty()
-                        think_box.markdown("...")
-
-                        # Pre-compute response (blocking)
-                        full_response = st.session_state.chat_service.generate_reply(
-                            st.session_state.chat_session,
-                            st.session_state.chat_session.history[-1].content
-                        )
-
-                        # Clear indicator
-                        think_box.empty()
-
-                        # Stream response
-                        def fast_stream():
-                            import time
-                            words = full_response.split()
-                            for w in words:
-                                yield w + " "
-                                time.sleep(0.02)
-
-                        response_stream = st.write_stream(fast_stream)
-
-                        # Save to history
-                        st.session_state.chat_session.history.append(ChatMessage(role="assistant", content=response_stream))
-
-                        # Regenerate chips
-                        st.session_state.chat_session.suggested_replies = st.session_state.chat_service.generate_suggestions(
-                            st.session_state.chat_session.context, response_stream
-                        )
-                        st.rerun()
+        # Assistant moved to floating popover
 
 # Tab 2: Inputs
 with tab_inputs:
@@ -664,7 +732,7 @@ with tab_inputs:
                 display_content = display_content.replace(h, f"<mark style='background-color: #fff3cd; color: #856404; font-weight: bold;'>{h}</mark>")
 
         st.markdown(f"""
-        <div style="height: 500px; overflow-y: auto; background-color: #f0f2f6; color: #31333F; padding: 10px; border-radius: 5px; font-family: monospace; white-space: pre-wrap;">{display_content if display_content else "No clinical note provided."}</div>
+        <div style="height: 500px; overflow-y: auto; background-color: white; color: #31333F; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; font-family: 'Source Sans Pro', sans-serif; white-space: pre-wrap; line-height: 1.6; font-size: 16px;">{display_content if display_content else "No clinical note provided."}</div>
         """, unsafe_allow_html=True)
 
     with col2:
@@ -696,61 +764,292 @@ with tab_inputs:
             st.write(", ".join(record.allergies) if record.allergies else "None/Unknown")
 
         else:
-            # Text View
-            st.info("Displaying parsed input text used for analysis (Structured view not available for raw input).")
+            # Text View (Styled)
+            # Only show what we have
+            has_meds = bool(standardized_inputs["meds_text"].strip())
+            has_labs = bool(standardized_inputs["labs_text"].strip())
 
-            st.markdown("**Medications (Text)**")
-            st.text_area("Meds", standardized_inputs["meds_text"], height=150, disabled=True)
+            if has_meds:
+                st.markdown("**Medications**")
+                st.markdown(f"""
+                <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; border-left: 3px solid #6c757d; margin-bottom: 15px; font-family: monospace;">
+                    {standardized_inputs["meds_text"]}
+                </div>
+                """, unsafe_allow_html=True)
 
-            st.markdown("**Laboratories (Text)**")
-            st.text_area("Labs", standardized_inputs["labs_text"], height=200, disabled=True)
+            if has_labs:
+                st.markdown("**Laboratories**")
+                st.markdown(f"""
+                 <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; border-left: 3px solid #6c757d; margin-bottom: 15px; font-family: monospace;">
+                    {standardized_inputs["labs_text"]}
+                </div>
+                """, unsafe_allow_html=True)
 
-# Tab 3: Evaluation
+            if not has_meds and not has_labs:
+                st.caption("No structured data (Meds/Labs) extracted.")
+
+# Tab 3: History & Export
 with tab_eval:
-    st.subheader("System Evaluation")
+    st.subheader("📋 Session History")
 
-    if input_mode != "Demo Cases":
-        st.info("ℹ️ Evaluation metrics are available only for **Demo Cases** because they contain ground truth labels.\n\nPlease switch to 'Demo Cases' mode to run the evaluation suite.")
+    if "review_history" not in st.session_state or not st.session_state.review_history:
+        st.info("No safety reviews yet this session. Run a review from the **Safety Analysis** tab to see history here.")
     else:
-        st.caption("Run a full evaluation against the synthetic dataset.")
+        from datetime import datetime
 
-    if st.button("▶️ Run Evaluation Suite"):
-        with st.spinner("Running batch evaluation against 'data/synthetic/'..."):
-            run_eval_pipeline()
-            st.success("Evaluation complete! Results updated.")
-            st.rerun()
+        for i, review in enumerate(reversed(st.session_state.review_history)):
+            severity_color = {"HIGH": "🔴", "MEDIUM": "🟠", "LOW": "🟡", "NONE": "🟢"}.get(review["max_severity"], "⚪")
+            report = review["report"]
 
-    results_path = "results.json"
-    if os.path.exists(results_path):
-        with open(results_path, "r") as f:
-            try: results = json.load(f)
-            except: results = {}
+            # Create short recognizable name from input
+            input_words = review['input_preview'].split()[:5]  # First 5 words
+            short_name = " ".join(input_words)
+            if len(input_words) == 5:
+                short_name += "..."
 
-        summary = results.get("summary", {})
-        st.markdown("### Aggregate Performance")
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("F1 Score", f"{summary.get('f1', 0):.2f}")
-        m2.metric("Weighted Recall", f"{summary.get('weighted_recall', 0):.2f}")
-        m3.metric("High-Sev Recall", f"{summary.get('high_severity_recall', 0):.2f}")
-        m4.metric("Avg FDR", f"{summary.get('avg_fpr_fdr', 0):.2f}")
+            # Generate export text for this specific review
+            report_text = f"""SENTINEL MD - SAFETY REVIEW REPORT
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+Case: {review['case_id']}
+{'='*50}
 
-        st.caption(f"Evidence Grounding: {summary.get('grounding_rate', 0):.1%} | Avg Runtime: {summary.get('avg_runtime_sec', 0):.2f}s")
-        st.divider()
+SUMMARY
+Confidence: {report.confidence_score*100:.0f}% | Flags: {len(report.flags)}
+{report.summary}
 
-        # Cases Table
-        if results.get("cases"):
-            df_data = []
-            for c in results["cases"]:
-                m = c["metrics"]
-                df_data.append({
-                    "Case": c["filename"],
-                    "TP": c.get("tp", 0),
-                    "FP": c.get("fp", 0),
-                    "FN": c.get("fn", 0),
-                    "W.Recall": m.get("weighted_recall", 0),
-                    "Grounding": m.get("grounding_rate", 0),
-                    "Runtime (s)": c.get("duration_sec", 0)
-                })
-            st.dataframe(pd.DataFrame(df_data), use_container_width=True, hide_index=True)
-    else:
-            st.info("No results found. Click 'Run Evaluation Suite' to generate.")
+{'='*50}
+SAFETY FLAGS
+"""
+            for j, flag in enumerate(report.flags, 1):
+                sev = flag.severity.value if hasattr(flag.severity, 'value') else str(flag.severity)
+                cat = flag.category.value if hasattr(flag.category, 'value') else str(flag.category)
+                report_text += f"""
+[{j}] {sev} - {cat}
+    {flag.explanation}
+    Recommendation: {flag.recommendation if flag.recommendation else 'Review guidelines.'}
+"""
+            report_text += f"""
+{'='*50}
+DISCLAIMER: Advisory only. Consult healthcare professionals.
+"""
+
+            # Header row: Expander title + Download button side by side
+            col_expand, col_dl = st.columns([5, 1])
+
+            with col_dl:
+                st.download_button(
+                    label="⬇️",
+                    data=report_text,
+                    file_name=f"safety_report_{review['case_id']}_{datetime.now().strftime('%H%M')}.txt",
+                    mime="text/plain",
+                    key=f"dl_{i}",
+                    help="Download this report as .txt"
+                )
+
+            with col_expand:
+                with st.expander(f"{severity_color} **{review['timestamp']}** — \"{short_name}\" ({review['flag_count']} flag{'s' if review['flag_count'] != 1 else ''})", expanded=(i == 0)):
+                    st.caption(f"**Case ID**: {review['case_id']} | **Confidence**: {report.confidence_score*100:.0f}%")
+
+                    st.markdown(f"**Analysis**: {report.summary}")
+
+                    if review["flag_count"] > 0:
+                        st.divider()
+                        for flag in report.flags:
+                            sev = flag.severity.value if hasattr(flag.severity, 'value') else str(flag.severity)
+                            cat = flag.category.value if hasattr(flag.category, 'value') else str(flag.category)
+                            sev_style = {"HIGH": "🔴", "MEDIUM": "🟠", "LOW": "🟡"}.get(sev, "⚪")
+
+                            st.markdown(f"{sev_style} **[{sev}] {cat.replace('_', ' ').title()}**")
+                            st.markdown(f"> {flag.explanation}")
+                            if flag.recommendation:
+                                st.caption(f"💡 {flag.recommendation}")
+                            st.markdown("---")
+                    else:
+                        st.success("✅ No safety issues detected")
+
+# --- Floating Chat Implementation ---
+def render_floating_chat(standardized_inputs):
+    """
+    Renders the Safety Assistant in a premium floating UI.
+    Matches the "Purple Gradient" aesthetic requested.
+    """
+
+    # --- CSS STYLES ---
+    st.markdown("""
+    <style>
+    /* 1. Floating Action Button Container */
+    div[data-testid="stPopover"] {
+        position: fixed !important;
+        bottom: 30px !important;
+        right: 30px !important;
+        width: 60px !important; /* Force circle size */
+        height: 60px !important;
+        z-index: 9999 !important;
+        background-color: transparent !important;
+    }
+
+    /* Target the button inside - Force it to be a circle */
+    div[data-testid="stPopover"] > button {
+        background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%) !important;
+        color: white !important;
+        border-radius: 50% !important;
+        width: 60px !important;
+        height: 60px !important;
+        box-shadow: 0 4px 15px rgba(74, 0, 224, 0.4) !important;
+        border: none !important;
+        font-size: 28px !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: transform 0.2s !important;
+    }
+
+    div[data-testid="stPopover"] > button:hover {
+        transform: scale(1.1) !important;
+        box-shadow: 0 6px 20px rgba(74, 0, 224, 0.6) !important;
+    }
+
+    /* Remove any default text/arrow from the button if possible (Streamlit adds '...') */
+    div[data-testid="stPopover"] > button > div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 2. Chat Bubbles */
+    .chat-bubble-user {
+        background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 18px 18px 4px 18px; /* Tail bottom-right */
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        margin-bottom: 8px;
+        font-size: 14px;
+        line-height: 1.5;
+        max-width: 85%;
+        float: right;
+        clear: both;
+    }
+
+    .chat-bubble-bot {
+        background: #f1f2f6;
+        color: #2c3e50;
+        padding: 12px 16px;
+        border-radius: 18px 18px 18px 4px; /* Tail bottom-left */
+        margin-bottom: 8px;
+        font-size: 14px;
+        line-height: 1.5;
+        max-width: 85%;
+        float: left;
+        clear: both;
+        border: 1px solid #e1e4e8;
+    }
+
+    /* 3. Chat Header (Simulated) */
+    .chat-header {
+        background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%);
+        padding: 15px;
+        border-radius: 10px 10px 0 0;
+        color: white;
+        margin: -1rem -1rem 1rem -1rem; /* Negative margins to fill popover */
+        display: flex;
+        align-items: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .chat-header-avatar {
+        font-size: 24px;
+        margin-right: 12px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .chat-header-info h4 {
+        margin: 0;
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+    }
+    .chat-header-info p {
+        margin: 0;
+        color: rgba(255,255,255,0.8);
+        font-size: 12px;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+    # The Popover
+    with st.popover("💬", use_container_width=False):
+            # Header
+            st.markdown("""
+            <div class="chat-header">
+                <div class="chat-header-avatar">🛡️</div>
+                <div class="chat-header-info">
+                    <h4>Sentinel Assistant</h4>
+                    <p>Safety & Compliance Bot</p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # --- CHAT LOGIC ---
+            if "chat_session" not in st.session_state:
+                st.session_state.chat_session = ChatSession()
+
+            report = st.session_state.get("last_report")
+
+            if not report:
+                st.markdown("""
+                <div style="text-align: center; padding: 20px; color: #666;">
+                    <br>
+                    Run a <b>Safety Analysis</b> first to activate the bot.
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                 # Init Context if needed
+                if not st.session_state.chat_session.history and hasattr(st.session_state, 'chat_service'):
+                    audit_dict = report.model_dump()
+                    raw_note = standardized_inputs.get('note_text', '')
+                    input_summary_txt = f"Clinical Note Content:\n{raw_note[:2000]}"
+
+                    st.session_state.chat_session = st.session_state.chat_service.reset_session(
+                        st.session_state.chat_session,
+                        audit_dict,
+                        input_summary_txt
+                    )
+
+                # Render Chat History
+                chat_cont = st.container(height=350)
+                with chat_cont:
+                    # History
+                    for msg in st.session_state.chat_session.history:
+                         if msg.role == "user":
+                             st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
+                         else:
+                             st.markdown(f'<div class="chat-bubble-bot">{msg.content}</div>', unsafe_allow_html=True)
+
+                    # Spacer to ensure scrolling hits bottom
+                    st.markdown('<div style="clear: both;"></div>', unsafe_allow_html=True)
+
+                # Input Area
+                if query := st.chat_input("Type a message...", key="float_chat_premium"):
+                    st.session_state.chat_session.history.append(ChatMessage(role="user", content=query))
+                    st.rerun()
+
+                # Generation
+                if st.session_state.chat_session.history and st.session_state.chat_session.history[-1].role == "user":
+                    with chat_cont:
+                        with st.spinner("Thinking..."):
+                             reply = st.session_state.chat_service.generate_reply(
+                                 st.session_state.chat_session,
+                                 st.session_state.chat_session.history[-1].content
+                             )
+                             st.session_state.chat_session.history.append(ChatMessage(role="assistant", content=reply))
+                             st.rerun()
+
+# Call the function
+render_floating_chat(standardized_inputs)

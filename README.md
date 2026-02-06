@@ -72,7 +72,7 @@ graph TD
 
         %% Inputs
         UI -->|Voice Input| Mic[Microphone]
-        Mic -->|Audio| Whisper[Whisper Large-v3 (MLX)]
+        Mic -->|Audio| Whisper["Whisper Large-v3 (MLX)"]
         Whisper -->|Transcribed Text| Context[Unified Patient Context]
 
         UI -->|Uploads: PDF/Images| Ingest[Input Pipeline]

@@ -46,11 +46,21 @@ class TranscriptionService:
 
         elif HAS_FASTER_WHISPER:
             self.backend = "faster_whisper"
+
+            # --- CLOUD OPTIMIZATION ---
+            # Streamlit Cloud has limited RAM (<3GB). 'large-v3' will OOM crash it.
+            # We force 'base' model on Linux to ensure stability.
+            if model_size == "large-v3":
+                logger.warning("Linux Environment Detected: Downgrading 'large-v3' to 'base' to prevent OOM crash.")
+                model_size = "base"
+
             # Faster-whisper handles model downloading automatically given the size string
             # We use 'int8' for CPU performance on Linux/Cloud
             if device == "cpu":
                 self.compute_type = "int8"
-            logger.info(f"TranscriptionService initialized (Backend: Faster-Whisper). Model: {model_size}, Compute: {self.compute_type}")
+
+            self.model_size = model_size # Update instance var
+            logger.info(f"TranscriptionService initialized (Backend: Faster-Whisper). Model: {self.model_size}, Compute: {self.compute_type}")
 
         else:
             logger.warning("No valid transcription backend found (mlx-whisper or faster-whisper missing). Feature disabled.")

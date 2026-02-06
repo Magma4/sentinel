@@ -46,6 +46,7 @@ from src.domain.models import ChatSession, ChatMessage, PatientRecord, SafetyFla
 from src.domain.models import ChatSession, ChatMessage, PatientRecord, SafetyFlag
 from src.eval.run_eval import run_eval_pipeline
 from src.services.transcription_service import TranscriptionService
+from src.services.patient_service import PatientService
 import io
 
 # Logging
@@ -59,6 +60,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Patient Service Init
+if "patient_service" not in st.session_state:
+    st.session_state.patient_service = PatientService()
 
 st.markdown("""
 <style>
@@ -164,9 +169,10 @@ with st.sidebar:
     st.caption("Clinical Safety Copilot")
     st.markdown("---")
 
+
     # Workflow Selection
     input_mode_map = {
-        "Load Reference Case": "Demo Cases",
+        "Search Patient Records": "Patient Records",
         "Clinical Dictation": "Paste Text",
         "Upload Medical Records": "Upload Files"
     }
@@ -182,12 +188,70 @@ with st.sidebar:
 
     # Case Selector (if applicable)
     selected_case_file = None
-    if input_mode == "Demo Cases":
-        DATA_DIR = "data/synthetic"
-        cases = sorted([f for f in os.listdir(DATA_DIR) if f.endswith(".json")])
-        display_cases = [c.replace(".json", "").replace("_"," ").title() for c in cases]
-        sel_idx = st.selectbox("Select Patient Record", display_cases, index=0)
-        selected_case_file = cases[display_cases.index(sel_idx)]
+    if input_mode == "Patient Records":
+        st.sidebar.info("🔍 Search or Create Patient")
+
+        # Load Patients
+        all_patients = st.session_state.patient_service.get_all_patients()
+        patient_options = ["Select...", "+ New Patient"] + [f"{p['name']} ({p['dob']})" for p in all_patients]
+
+        sel_idx = st.sidebar.selectbox("Patient Record", patient_options, index=0)
+
+        if sel_idx == "+ New Patient":
+            with st.sidebar.form("new_pat_wf"):
+                n_name = st.text_input("Name")
+                n_dob = st.text_input("DOB (YYYY-MM-DD)")
+                if st.form_submit_button("Create Profile"):
+                    if n_name:
+                        new_p = st.session_state.patient_service.create_patient(n_name, n_dob)
+                        st.session_state.current_patient = new_p
+                        st.toast(f"Profile Created: {n_name}", icon="✅")
+                        st.rerun()
+            st.session_state.current_patient = None
+
+        elif sel_idx != "Select...":
+            # Find patient object
+            found_p = None
+            for p in all_patients:
+                if f"{p['name']} ({p['dob']})" == sel_idx:
+                    found_p = p
+                    break
+
+            if found_p:
+                st.session_state.current_patient = found_p
+                st.sidebar.success(f"Active: {found_p['name']}")
+                st.sidebar.caption(f"MRN: {found_p.get('mrn','')}")
+
+                # Check for existing encounters to load
+                encounters = st.session_state.patient_service.get_encounters(found_p["id"])
+                if encounters:
+                    # Load the latest
+                    latest = encounters[0]
+                    input_data = latest.get("input_data", {})
+
+                    # Populate inputs
+                    st.session_state.note_in_val = input_data.get("note", "")
+                    st.session_state.meds_in_val = input_data.get("meds", "")
+                    st.session_state.labs_in_val = input_data.get("labs", "")
+
+                    # Restore Report if available
+                    if "report_data" in latest:
+                        # Reconstruct AuditReport object from dict
+                        # This is a bit hacky given we need Pydantic objects for flags
+                        # For now, we might need a helper or just re-run?
+                        # Actually, just clearing the report is safer to avoid type errors,
+                        # OR we can try to restore it if we want to show it immediately.
+                        # Let's just load the INPUTS for now so the user can hit "Run".
+                        # Restoring complex Pydantic objects from JSON without a parser is risky in this quick fix.
+                        pass
+
+                    st.toast(f"Loaded records for {found_p['name']}", icon="📂")
+                else:
+                    st.toast(f"Active: {found_p['name']} (No records yet)", icon="👤")
+
+            pass
+        else:
+             st.session_state.current_patient = None
 
     # Advanced / Technical Section (Collapsed by default)
     with st.expander("🛠️ Advanced Configuration", expanded=False):
@@ -265,32 +329,139 @@ file_source_type = "TEXT"
 quality_report = None
 
 # Input Handling
-if input_mode == "Demo Cases":
-    file_source_type = "DEMO"
-    # Patient Banner
-    pt_id_str = selected_case_file.replace(".json", "").replace("_"," ").replace("Pt Record", "").strip()
-    if pt_id_str.startswith("Mrn"): pt_id_str = pt_id_str.replace("Mrn", "MRN:")
+# Input Handling
+if input_mode == "Patient Records":
+    # 0. Define Tabs EARLY (Layout Change)
+    tab_safety, tab_inputs, tab_eval = st.tabs(["🛡️ Safety Analysis", "📄 Patient Record", "📋 History & Export"])
 
-    st.markdown(f"""
-    <div style="background-color: transparent; border-bottom: 2px solid #f0f2f6; padding-bottom: 10px; margin-bottom: 20px;">
-        <h1 style="margin: 0; font-size: 2.2rem;">Patient Record</h1>
-        <p style="color: #666; font-size: 1.1rem; margin: 0;">Case ID: <b>{pt_id_str}</b></p>
-    </div>
-    """, unsafe_allow_html=True)
+    with tab_inputs:
+        # 1. Header & Edit Toggle
+        p_name = st.session_state.current_patient['name'] if st.session_state.current_patient else "Guest User"
 
-    current_case_path = os.path.join(DATA_DIR, selected_case_file)
-    with open(current_case_path, "r") as f:
-        case_data = json.load(f)
-        record = PatientRecord(**case_data)
+        col_hdr, col_btn = st.columns([4, 1])
+        with col_hdr:
+             st.markdown(f"""
+            <div style="background-color: transparent; border-bottom: 2px solid #f0f2f6; padding-bottom: 10px; margin-bottom: 20px;">
+                <h1 style="margin: 0; font-size: 2.2rem;">Patient Record</h1>
+                <p style="color: #666; font-size: 1.1rem; margin: 0;">Active: <b>{p_name}</b></p>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # Load from Record
-    standardized_inputs = {
-        "case_id": selected_case_file.replace(".json", ""),
-        "note_text": "\n".join([n.content for n in record.notes]),
-        "labs_text": "\n".join([f"{l.name}: {l.value} {l.unit}" for l in record.labs]),
-        "meds_text": ", ".join(record.medications),
-        "images": []
-    }
+        # Init Edit State
+        if "rec_edit_mode" not in st.session_state: st.session_state.rec_edit_mode = False
+
+        with col_btn:
+            # Toggle Button
+            btn_label = "✅ Done" if st.session_state.rec_edit_mode else "✏️ Edit Record"
+            btn_type = "primary" if st.session_state.rec_edit_mode else "secondary"
+            if st.button(btn_label, type=btn_type, key="btn_toggle_edit"):
+                st.session_state.rec_edit_mode = not st.session_state.rec_edit_mode
+                st.rerun()
+
+        # 2. Init Data State
+        if "note_in_val" not in st.session_state: st.session_state.note_in_val = ""
+        if "meds_in_val" not in st.session_state: st.session_state.meds_in_val = ""
+        if "labs_in_val" not in st.session_state: st.session_state.labs_in_val = ""
+
+        # 3. Layout: 3 Columns
+        col_e1, col_e2, col_e3 = st.columns(3)
+
+        # Determine Content based on State
+        # We adhere to st.session_state values as the source of truth
+
+        # --- Clinical Note ---
+        with col_e1:
+            st.markdown("### 📝 Clinical Note")
+            if st.session_state.rec_edit_mode:
+                note_in = st.text_area("Edit Content", height=400, key="note_in_val", placeholder="Enter clinical narrative...")
+            else:
+                # Read-Only View
+                val = st.session_state.note_in_val
+                if not val.strip():
+                    st.info("No content.")
+                else:
+                    st.markdown(f"<div style='background-color:#f9f9f9; padding:15px; border-radius:8px; height:400px; overflow-y:auto; font-size:0.95em;'>{val}</div>", unsafe_allow_html=True)
+                note_in = val
+
+        # --- Labs ---
+        with col_e2:
+            st.markdown("### 🧪 Labs")
+            if st.session_state.rec_edit_mode:
+                labs_in = st.text_area("Edit Content", height=400, key="labs_in_val", placeholder="Potassium: 4.5...")
+            else:
+                val = st.session_state.labs_in_val
+                if not val.strip():
+                    st.info("No content.")
+                else:
+                     st.markdown(f"<div style='background-color:#f9f9f9; padding:15px; border-radius:8px; height:400px; overflow-y:auto; font-size:0.95em; white-space: pre-wrap;'>{val}</div>", unsafe_allow_html=True)
+                labs_in = val
+
+        # --- Meds ---
+        with col_e3:
+            st.markdown("### 💊 Medications")
+            if st.session_state.rec_edit_mode:
+                meds_in = st.text_area("Edit Content", height=400, key="meds_in_val", placeholder="Lisinopril 10mg...")
+            else:
+                 val = st.session_state.meds_in_val
+                 if not val.strip():
+                     st.info("No content.")
+                 else:
+                      st.markdown(f"<div style='background-color:#f9f9f9; padding:15px; border-radius:8px; height:400px; overflow-y:auto; font-size:0.95em; white-space: pre-wrap;'>{val}</div>", unsafe_allow_html=True)
+                 meds_in = val
+
+        # 4. Global File Attachments (Only in Edit Mode)
+        note_files, labs_files, meds_files = None, None, None
+        if st.session_state.rec_edit_mode:
+            with st.expander("📎 Attach Documents (PDF/Images)", expanded=True):
+                st.info("Files uploaded here are processed and appended.")
+                col_u1, col_u2, col_u3 = st.columns(3)
+                with col_u1:
+                    note_files = st.file_uploader("Note Files", type=["pdf", "png", "jpg"], accept_multiple_files=True, key="rec_u_notes")
+                with col_u2:
+                    labs_files = st.file_uploader("Lab Files", type=["pdf", "png", "jpg"], accept_multiple_files=True, key="rec_u_labs")
+                with col_u3:
+                    meds_files = st.file_uploader("Med Files", type=["pdf", "png", "jpg"], accept_multiple_files=True, key="rec_u_meds")
+        else:
+            # Maybe show list of attached files in Read-Only?
+            # For simplicity, we hide attachments UI in read-only.
+            pass
+
+        # 5. Pipeline Handoff (Common Logic)
+        upload_inputs = standardize_input("UPLOAD", note_files, labs_files, meds_files)
+
+        # If files were just uploaded, we might want to automatically append them to the text?
+        # But standardize_input returns the TEXT extracted from them.
+        # Logic: If we are in Edit Mode, we combine current text + new file text.
+        # But if we leave them in upload_inputs, they get "re-appended" every frame?
+        # No, standardize_input re-reads the file every frame.
+        # If we append to note_in (the variable), it doesn't update session_state.note_in_val automatically.
+        # We rely on the final `standardized_inputs` dict construction to downstream users.
+
+        final_note = note_in + ("\n\n" + upload_inputs["note_text"] if upload_inputs["note_text"] else "")
+        final_labs = labs_in + ("\n\n" + upload_inputs["labs_text"] if upload_inputs["labs_text"] else "")
+        final_meds = meds_in + ("\n\n" + upload_inputs["meds_text"] if upload_inputs["meds_text"] else "")
+
+        # Optional: Deterministic Image List
+        img_q_list = []
+        all_files = (note_files or []) + (labs_files or []) + (meds_files or [])
+        for f in all_files:
+            if f.name.lower().endswith((".png", ".jpg", ".jpeg")):
+                try:
+                    f.seek(0)
+                    file_bytes = f.read()
+                    img = ImageQualityService.load_image(file_bytes)
+                    q_res = ImageQualityService.compute_quality(img)
+                    q_res["filename"] = f.name
+                    img_q_list.append(q_res)
+                except: pass
+
+        standardized_inputs = {
+            "case_id": p_name,
+            "note_text": final_note.strip(),
+            "labs_text": final_labs.strip(),
+            "meds_text": final_meds.strip(),
+            "quality_report": img_q_list # Use the new img_q_list
+        }
 
 elif input_mode == "Paste Text":
     st.header("Clinical Documentation")
@@ -338,8 +509,9 @@ elif input_mode == "Paste Text":
                     st.error(f"Transcription Error: {e}")
 
     # Sync Text Area with Session State
-    if "note_in_val" not in st.session_state:
-        st.session_state.note_in_val = ""
+    if "note_in_val" not in st.session_state: st.session_state.note_in_val = ""
+    if "meds_in_val" not in st.session_state: st.session_state.meds_in_val = ""
+    if "labs_in_val" not in st.session_state: st.session_state.labs_in_val = ""
 
     # Check if voice was used (transcription exists)
     has_voice_input = bool(st.session_state.note_in_val.strip())
@@ -359,9 +531,9 @@ elif input_mode == "Paste Text":
                                  placeholder="Example:\nPt presented with weakness...\nPMH: CKD, HTN...",
                                  key="note_in_val")
         with col_p2:
-            labs_in = st.text_area("Labs", height=300, placeholder="Example:\nPotassium: 6.0 mmol/L\nCreatinine: 2.1 mg/dL")
+            labs_in = st.text_area("Labs", height=300, placeholder="Example:\nPotassium: 6.0 mmol/L\nCreatinine: 2.1 mg/dL", key="labs_in_val")
         with col_p3:
-            meds_in = st.text_area("Medications", height=300, placeholder="Example:\nLisinopril 10mg daily\nSpironolactone 25mg daily")
+            meds_in = st.text_area("Medications", height=300, placeholder="Example:\nLisinopril 10mg daily\nSpironolactone 25mg daily", key="meds_in_val")
 
     # Bypass Adapter (Raw Strings)
     standardized_inputs = {
@@ -444,7 +616,8 @@ elif input_mode == "Upload Files":
     # ------------------------------------------
 
 # Tabs
-tab_safety, tab_inputs, tab_eval = st.tabs(["🛡️ Safety Analysis", "📄 Patient Record", "📋 History & Export"])
+if input_mode != "Patient Records":
+    tab_safety, tab_inputs, tab_eval = st.tabs(["🛡️ Safety Analysis", "📄 Patient Record", "📋 History & Export"])
 
 # Tab 1: Safety Review
 with tab_safety:
@@ -491,6 +664,58 @@ with tab_safety:
                     if report:
                         st.session_state.last_report = report
                         st.session_state.inference_cache[cache_key] = {"report": report}
+
+                        # --- AUTO-DETECT PATIENT ---
+                        # If the LLM found demographics, try to match or create patient
+                        if report.patient_demographics and "name" in report.patient_demographics:
+                            detected_name = report.patient_demographics["name"]
+                            detected_dob = report.patient_demographics.get("dob", "Unknown")
+
+                            # Only act if we aren't already locked onto a specific patient (or are in Guest/New mode)
+                            # Actually, even if locked, we might want to warn? For now, assume Guest/New.
+                            current_p = st.session_state.get("current_patient")
+
+                            if not current_p:
+                                # Search existing
+                                all_p = st.session_state.patient_service.get_all_patients()
+                                match = None
+                                for p in all_p:
+                                    if p["name"].lower() == detected_name.lower(): # Simple match
+                                        match = p
+                                        break
+
+                                if match:
+                                    st.session_state.current_patient = match
+                                    st.toast(f"Matched existing patient: {detected_name}", icon="🔗")
+                                else:
+                                    # Create new
+                                    new_p = st.session_state.patient_service.create_patient(detected_name, detected_dob)
+                                    st.session_state.current_patient = new_p
+                                    st.toast(f"Auto-created patient: {detected_name}", icon="✨")
+
+                                # Rerun so the sidebar updates? Only if we want immediate visual feedback.
+                                # But we need to save the encounter first!
+
+                        # ---------------------------
+
+                        # --- RECORD KEEPING ---
+                        if "current_patient" in st.session_state and st.session_state.current_patient:
+                            pat_id = st.session_state.current_patient["id"]
+                            rpt_data = {
+                                "summary": report.summary,
+                                "flags": [{"category": str(f.category), "severity": str(f.severity), "explanation": f.explanation} for f in report.flags],
+                                "confidence": report.confidence_score
+                            }
+                            st.session_state.patient_service.save_encounter(
+                                patient_id=pat_id,
+                                input_data={
+                                    "note": standardized_inputs["note_text"],
+                                    "meds": standardized_inputs["meds_text"],
+                                    "labs": standardized_inputs["labs_text"]
+                                },
+                                report_data=rpt_data
+                            )
+                            st.toast(f"Saved to {st.session_state.current_patient['name']}", icon="💾")
 
                         # Track in session history
                         if "review_history" not in st.session_state:
@@ -792,10 +1017,41 @@ with tab_inputs:
 
 # Tab 3: History & Export
 with tab_eval:
-    st.subheader("📋 Session History")
+    st.subheader("📋 Session History & Patient Records")
 
+    # If a patient is selected, show their permanent history first
+    if "current_patient" in st.session_state and st.session_state.current_patient:
+        curr = st.session_state.current_patient
+        st.markdown(f"#### 🗂️ Record: {curr['name']} (DOB: {curr['dob']})")
+
+        # Load encounters
+        encounters = st.session_state.patient_service.get_encounters(curr["id"])
+
+        if not encounters:
+            st.info("No saved encounters for this patient yet.")
+        else:
+            for enc in encounters:
+                dt_str = enc.get("timestamp", "Unknown Date")
+                summ = enc.get("report_data", {}).get("summary", "No Summary")
+                n_flags = len(enc.get("report_data", {}).get("flags", []))
+
+                with st.expander(f"📅 {dt_str} — {n_flags} Flags"):
+                    st.caption(summ)
+                    if n_flags > 0:
+                        st.markdown("**Flags:**")
+                        for f in enc["report_data"]["flags"]:
+                            icon = {"HIGH": "🔴", "MEDIUM": "🟠", "LOW": "🟡"}.get(f.get("severity", "MEDIUM"), "⚪")
+                            st.markdown(f"- {icon} **{f.get('category','Issue')}**: {f.get('explanation')}")
+
+                    st.markdown("---")
+                    st.text("Input Note:")
+                    st.text(enc.get("input_data", {}).get("note", ""))
+
+        st.divider()
+
+    st.markdown("#### 🕒 Local Session History (Unsaved Guest Activity)")
     if "review_history" not in st.session_state or not st.session_state.review_history:
-        st.info("No safety reviews yet this session. Run a review from the **Safety Analysis** tab to see history here.")
+        st.info("No session activity yet.")
     else:
         from datetime import datetime
 

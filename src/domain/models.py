@@ -52,6 +52,7 @@ class AuditReport(BaseModel):
     flags: List[SafetyFlag]
     missing_info_questions: List[str]
     confidence_score: float
+    patient_demographics: Optional[Dict[str, str]] = None # e.g. {"name": "John Doe", "dob": "1980-01-01"}
     metadata: Optional[Dict[str, Any]] = None
 
 # --- Pydantic Models (Patient Data) ---

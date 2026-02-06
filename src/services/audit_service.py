@@ -104,6 +104,7 @@ Labs:
                 summary=engine_output.get("summary", "No summary provided."),
                 flags=flags,
                 missing_info_questions=engine_output.get("missing_info_questions", []),
+                patient_demographics=engine_output.get("patient_demographics", None),
                 confidence_score=engine_output.get("confidence_score", 0.8),
                 metadata={
                     "engine_duration": time.time() - t_start,

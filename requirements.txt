@@ -69,4 +69,4 @@ tzdata==2025.3
 urllib3==2.6.3
 watchdog==6.0.0
 
-mlx-whisper==0.4.1
+mlx-whisper==0.4.1; sys_platform == 'darwin'

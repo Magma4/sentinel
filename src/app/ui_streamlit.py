@@ -302,10 +302,12 @@ elif input_mode == "Paste Text":
     st.caption("💡 **Voice Input**: Speak your full clinical note including medications and labs. The AI will parse everything automatically.")
     audio_val = st.audio_input("🎙️ Dictate")
     if audio_val:
-        # Prevent re-transcription if audio hasn't changed
-        if "last_audio" not in st.session_state or st.session_state.last_audio != audio_val:
-            st.session_state.last_audio = audio_val
-            with st.spinner("Transcribing... (Apple MLX Accelerated - M4 Native)"):
+        # User Confirmation Step
+        st.info("Audio captured. Click below to process.")
+
+        if st.button("✨ Transcribe Audio", type="primary", key="transcribe_btn"):
+            st.session_state.last_audio = audio_val # Update state to track processed audio
+            with st.spinner("Transcribing... (Using Local/Edge Model)"):
                 try:
                     # Initialize Service (Singleton pattern via session_state)
                     # Renamed key to force re-init after code changes

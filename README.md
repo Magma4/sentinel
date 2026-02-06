@@ -4,12 +4,12 @@
 
 > *"Turning Chaos into Safety."*
 
-SentinelMD is an offline-first "Edge AI" application that acts as a second pair of eyes for clinicians. It automatically cross-references clinical notes, scanned medication lists, and lab results to detect life-threatening errors like drug-drug interactions and missing workflow steps—all without requiring an internet connection.
+SentinelMD is an offline-first "Edge AI" application that acts as a second pair of eyes for clinicians. It automatically cross-references clinical notes, scanned medication lists, and lab results to detect life-threatening errors like drug-drug interactions and missing workflow steps - all without requiring an internet connection.
 
 ---
 
 ## The Problem
-In high-pressure clinical environments—especially in resource-constrained settings like rural areas—doctors are overwhelmed. Medical records are often fractured across handwritten scripts, PDFs, and printed lab results. In this chaos, subtle connections (like a patient on ACE inhibitors showing signs of hyperkalemia) can easily slip through the cracks. Cloud-based AI tools are often unusable due to poor connectivity or strict privacy regulations.
+In high-pressure clinical environments - especially in resource-constrained settings like rural areas - doctors are overwhelmed. Medical records are often fractured across handwritten scripts, PDFs, and printed lab results. In this chaos, subtle connections (like a patient on ACE inhibitors showing signs of hyperkalemia) can easily slip through the cracks. Cloud-based AI tools are often unusable due to poor connectivity or strict privacy regulations.
 
 ## The Solution
 SentinelMD serves as an intelligent, local auditor.

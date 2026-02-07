@@ -43,6 +43,11 @@ class PatientService:
         """Creates a new patient and adds them to the index."""
         patients = self.get_all_patients()
 
+        # Check for duplicates (same name AND DOB)
+        for p in patients:
+            if p["name"].lower().strip() == name.lower().strip() and p["dob"] == dob:
+                return None  # Indicate duplicate found
+
         # Simple ID generation (short UUID for readability)
         new_id = str(uuid.uuid4())[:8]
 
@@ -65,6 +70,30 @@ class PatientService:
         os.makedirs(patient_dir, exist_ok=True)
 
         return new_patient
+
+    def delete_patient(self, patient_id: str) -> bool:
+        """Deletes a patient and all their encounters from the system."""
+        import shutil
+
+        patients = self.get_all_patients()
+        original_count = len(patients)
+
+        # Remove from index
+        patients = [p for p in patients if p["id"] != patient_id]
+
+        if len(patients) == original_count:
+            return False  # Patient not found
+
+        # Write updated index
+        with open(INDEX_FILE, "w") as f:
+            json.dump(patients, f, indent=2)
+
+        # Delete patient folder and all encounters
+        patient_dir = os.path.join(DATA_DIR, patient_id)
+        if os.path.exists(patient_dir):
+            shutil.rmtree(patient_dir)
+
+        return True
 
     def save_encounter(self, patient_id: str, input_data: Dict, report_data: Dict, audio_file: str = None) -> str:
         """

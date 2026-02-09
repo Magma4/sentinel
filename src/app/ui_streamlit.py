@@ -32,6 +32,7 @@ import pandas as pd
 from typing import Dict, Any, Optional
 import importlib
 import logging
+import altair as alt
 
 # Module Imports
 import src.domain.models
@@ -49,6 +50,8 @@ from src.services.transcription_service import TranscriptionService
 import src.core.extract
 importlib.reload(src.core.extract)
 from src.core.extract import FactExtractor
+import src.services.patient_service
+importlib.reload(src.services.patient_service)
 from src.services.patient_service import PatientService
 import io
 
@@ -65,7 +68,8 @@ st.set_page_config(
 )
 
 # Patient Service Init
-if "patient_service" not in st.session_state:
+# Hot-reload check: Re-init if method missing
+if "patient_service" not in st.session_state or not hasattr(st.session_state.patient_service, "get_population_stats"):
     st.session_state.patient_service = PatientService()
 
 st.markdown("""
@@ -328,6 +332,7 @@ with st.sidebar:
     # Workflow Selection
     input_mode_map = {
         "Patient Records": "Patient Records",
+        "Population Health": "Population Health",
         "Clinical Dictation": "Paste Text",
         "Upload Medical Records": "Upload Files"
     }
@@ -758,6 +763,115 @@ if input_mode == "Patient Records":
             "meds_text": final_meds.strip(),
             "quality_report": img_q_list # Use the new img_q_list
         }
+
+elif input_mode == "Population Health":
+    st.header("Population Health Analytics")
+    st.caption("Aggregate safety insights across your patient panel.")
+
+    stats = st.session_state.patient_service.get_population_stats()
+
+    # 1. Key Metrics
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Patients", stats["total_patients"])
+    m2.metric("High Risk", stats["risk_distribution"]["High"], delta_color="inverse")
+    m3.metric("Medium Risk", stats["risk_distribution"]["Medium"], delta_color="off")
+    m4.metric("Active Safety Flags", sum(stats["top_flags"].values()))
+
+    st.divider()
+
+    # 2. Charts
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.subheader("Risk Stratification")
+        risk_data = pd.DataFrame({
+            "Risk Level": list(stats["risk_distribution"].keys()),
+            "Patients": list(stats["risk_distribution"].values())
+        })
+        # Custom sort order
+        risk_order = ["High", "Medium", "Low", "Unknown"]
+        chart_risk = alt.Chart(risk_data).mark_bar().encode(
+            x=alt.X('Risk Level', sort=risk_order),
+            y='Patients',
+            color=alt.Color('Risk Level', scale=alt.Scale(domain=['High', 'Medium', 'Low', 'Unknown'], range=['#ef4444', '#f59e0b', '#22c55e', '#94a3b8'])),
+            tooltip=['Risk Level', 'Patients']
+        ).properties(height=300)
+        st.altair_chart(chart_risk, use_container_width=True)
+
+    with c2:
+        st.subheader("Top Safety Concerns")
+        if stats["top_flags"]:
+            flag_data = pd.DataFrame({
+                "Category": list(stats["top_flags"].keys()),
+                "Count": list(stats["top_flags"].values())
+            })
+            chart_flags = alt.Chart(flag_data).mark_bar().encode(
+                x='Count',
+                y=alt.Y('Category', sort='-x'),
+                color=alt.value('#6366f1'),
+                tooltip=['Category', 'Count']
+            ).properties(height=300)
+            st.altair_chart(chart_flags, use_container_width=True)
+        else:
+            st.info("No safety flags detected yet.")
+
+    # 3. Patient List with Risk
+    st.subheader("Patient Panel")
+    all_p = st.session_state.patient_service.get_all_patients()
+
+    # Enrich with risk
+    table_data = []
+    for p in all_p:
+        encs = st.session_state.patient_service.get_encounters(p["id"])
+        risk = "Unknown"
+        last_seen = "Never"
+        flags = 0
+
+        if encs:
+            last_seen = encs[0].get("timestamp", "")[:10]
+            report = encs[0].get("report", {})
+            r_flags = report.get("flags", [])
+            flags = len(r_flags)
+
+            if not r_flags:
+                risk = "Low"
+            else:
+                max_sev = "Low"
+                for f in r_flags:
+                    sev = f.get("severity", "LOW").upper()
+                    if sev == "HIGH":
+                        max_sev = "High"
+                        break
+                    elif sev == "MEDIUM" and max_sev != "High":
+                        max_sev = "Medium"
+                risk = max_sev
+
+        table_data.append({
+            "Name": p["name"],
+            "DOB": p["dob"],
+            "MRN": p.get("mrn", ""),
+            "Risk Status": risk,
+            "Active Flags": flags,
+            "Last Audit": last_seen
+        })
+
+    if table_data:
+        df = pd.DataFrame(table_data)
+        st.dataframe(
+            df,
+            column_config={
+                "Risk Status": st.column_config.TextColumn(
+                    "Risk Status",
+                    help="Highest severity flag in latest audit",
+                    validate="^(High|Medium|Low|Unknown)$"
+                ),
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No patients found.")
+
 
 elif input_mode == "Paste Text":
     st.header("Clinical Documentation")

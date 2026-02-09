@@ -1,0 +1,12 @@
+{
+  "id": "bb76396d",
+  "patient_id": "404f94cc",
+  "timestamp": "2026-02-09T17:49:44.131533",
+  "inputs": {
+    "note": "Patient: Ama Osei\nDOB: 06/25/1962 | MRN: MRN-4401\n\nSubjective: 64F kidney transplant recipient (2019) presents with oral thrush and vaginal candidiasis. Reports white oral patches x5 days, vaginal itching.\n\nPMH: Renal transplant (living donor 2019), Hyperlipidemia, Type 2 Diabetes, Hypertension\nAllergies: None known\n\nObjective:\n  Vitals: BP 132/78, HR 72, Temp 37.1\u00b0C\n  Oral: White plaques on buccal mucosa, palate \u2014 scrapes off to reveal erythematous base\n  Transplant graft: Non-tender, no bruit changes\n\nAssessment: Oropharyngeal and vulvovaginal candidiasis in immunosuppressed transplant recipient\n\nPlan: Start Diflucan 200mg PO Day 1, then 100mg daily x 14 days. Continue current immunosuppression and statin. Recheck LFTs and tacrolimus level in 1 week.",
+    "labs": "Tacrolimus level: 8.2 ng/mL (therapeutic)\nCreatinine: 1.4 mg/dL (stable)\nHbA1c: 7.8%\nLDL: 118 mg/dL\nLFTs: AST 22, ALT 28 (normal)",
+    "meds": "Tacrolimus 3mg PO BID\nMycophenolate 500mg PO BID\nPrednisone 5mg PO Daily\nLipitor 40mg PO Daily\nDiflucan 200mg PO (NEW \u2014 loading dose)\nMetformin 1000mg PO BID\nAmlodipine 10mg PO Daily"
+  },
+  "report": {},
+  "audio_file": null
+}

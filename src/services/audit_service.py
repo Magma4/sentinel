@@ -3,6 +3,7 @@ import time
 import logging
 from src.domain.models import AuditReport, SafetyFlag, SafetySeverity, SafetyCategory, EvidenceQuote
 from src.adapters.ollama_adapter import ReviewEngineAdapter
+from src.core.ddi_checker import scan_medications, DDInteraction
 
 logger = logging.getLogger("sentinel.services.audit")
 
@@ -20,6 +21,28 @@ class AuditService:
         except Exception as e:
             logger.error(f"Failed to load instruction template: {e}")
             return "Analyze this clinical text for safety risks."
+
+    @staticmethod
+    def run_ddi_scan(meds_text: str) -> List[DDInteraction]:
+        """Run the deterministic DDI pre-scan on medication text."""
+        return scan_medications(meds_text)
+
+    @staticmethod
+    def _ddi_to_flags(interactions: List[DDInteraction]) -> List[SafetyFlag]:
+        """Convert DDI results into SafetyFlag objects."""
+        flags = []
+        for ddi in interactions:
+            sev = SafetySeverity(ddi.severity) if ddi.severity in ("HIGH", "MEDIUM", "LOW") else SafetySeverity.MEDIUM
+            flags.append(SafetyFlag(
+                category=SafetyCategory.MEDICATION_INTERACTION,
+                severity=sev,
+                explanation=f"Interaction: {ddi.drug_a.title()} + {ddi.drug_b.title()} — {ddi.mechanism}",
+                recommendation=ddi.recommendation,
+                evidence=[
+                    EvidenceQuote(source="MEDS", quote=f"{ddi.drug_a.title()} + {ddi.drug_b.title()} (DDI database)")
+                ],
+            ))
+        return flags
 
     def run_safety_review(self,
                           note_text: str,
@@ -100,15 +123,20 @@ Labs:
                     evidence=ev_objs
                 ))
 
+            # 4. DDI pre-scan flags (deterministic)
+            ddi_hits = self.run_ddi_scan(meds_text)
+            ddi_flags = self._ddi_to_flags(ddi_hits)
+
             report = AuditReport(
                 summary=engine_output.get("summary", "No summary provided."),
-                flags=flags,
+                flags=ddi_flags + flags,  # DDI flags first, then LLM flags
                 missing_info_questions=engine_output.get("missing_info_questions", []),
                 patient_demographics=engine_output.get("patient_demographics", None),
                 confidence_score=engine_output.get("confidence_score", 0.8),
                 metadata={
                     "engine_duration": time.time() - t_start,
-                    "model": self.engine.model
+                    "model": self.engine.model,
+                    "ddi_scan": {"interactions": len(ddi_hits), "meds_parsed": len(ddi_hits)}
                 }
             )
             return report

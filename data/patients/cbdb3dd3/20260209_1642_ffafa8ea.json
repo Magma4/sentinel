@@ -1,0 +1,12 @@
+{
+  "id": "ffafa8ea",
+  "patient_id": "cbdb3dd3",
+  "timestamp": "2026-02-09T16:42:25.767247",
+  "inputs": {
+    "note": "Patient: Sarah Chen\nDOB: 07/08/1954 | MRN: MRN-9901\n\nICU Admission Note\n\n72F admitted from ED. Found hypoxic on room air (SpO2 85%), febrile to 39.2\u00b0C, tachycardic HR 112.\n\nPMH: COPD, Type 2 Diabetes, Hypertension\nAllergies: None known\n\nED Course: CXR shows right lower lobe consolidation. Blood cultures drawn x2. Lactate 4.5 mmol/L. BP dipped to 85/50 after 500cc NS bolus.\n\nAssessment: Severe sepsis secondary to community-acquired pneumonia\n\nPlan:\n  - Piperacillin-Tazobactam (Zosyn) 4.5g IV q6h started\n  - Maintenance IV fluids at 75 cc/hr\n  - O2 via high-flow nasal cannula\n  - Monitor BP and urine output hourly\n  - Recheck lactate in 6 hours",
+    "labs": "Lactate: 4.5 mmol/L (H \u2014 CRITICAL)\nWBC: 22.0 K/uL (H)\nBP: 85/50 mmHg (post-bolus)\nProcalcitonin: 8.2 ng/mL (H)\nCreatinine: 1.8 mg/dL (H)\nGlucose: 245 mg/dL (H)\nSpO2: 85% on RA \u2192 94% on HFNC",
+    "meds": "Piperacillin-Tazobactam 4.5g IV q6h\nMaintenance NS at 75 cc/hr\nMetformin 1000mg PO BID (home med \u2014 held)\nLisinopril 20mg PO Daily (home med \u2014 held)"
+  },
+  "report": {},
+  "audio_file": null
+}

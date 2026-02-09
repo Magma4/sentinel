@@ -43,9 +43,12 @@ from src.services.audit_service import AuditService
 from src.services.image_quality_service import ImageQualityService
 from src.services.chat_service import ChatService
 from src.domain.models import ChatSession, ChatMessage, PatientRecord, SafetyFlag
-from src.domain.models import ChatSession, ChatMessage, PatientRecord, SafetyFlag
+
 from src.eval.run_eval import run_eval_pipeline
 from src.services.transcription_service import TranscriptionService
+import src.core.extract
+importlib.reload(src.core.extract)
+from src.core.extract import FactExtractor
 from src.services.patient_service import PatientService
 import io
 
@@ -67,26 +70,29 @@ if "patient_service" not in st.session_state:
 
 st.markdown("""
 <style>
+    /* Google Font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
     /* Theme Adaptation: Native Variables */
     :root {
         /* Severity Colors (RGBA for contrast) */
-        --sev-high-bg: rgba(255, 75, 75, 0.1);    /* Red tint */
-        --sev-high-border: #ff4b4b;
+        --sev-high-bg: rgba(239, 68, 68, 0.08);
+        --sev-high-border: #ef4444;
 
-        --sev-med-bg: rgba(255, 164, 33, 0.1);    /* Orange tint */
-        --sev-med-border: #ffa421;
+        --sev-med-bg: rgba(245, 158, 11, 0.08);
+        --sev-med-border: #f59e0b;
 
-        --sev-low-bg: rgba(33, 195, 84, 0.1);     /* Green tint */
-        --sev-low-border: #21c354;
+        --sev-low-bg: rgba(34, 197, 94, 0.08);
+        --sev-low-border: #22c55e;
 
         --evidence-bg: var(--secondary-background-color);
         --evidence-border: var(--secondary-background-color);
         --evidence-text: var(--text-color);
 
         /* Badges */
-        --badge-note: rgba(13, 71, 161, 0.1);
-        --badge-labs: rgba(74, 28, 28, 0.1);
-        --badge-meds: rgba(27, 94, 32, 0.1);
+        --badge-note: rgba(59, 130, 246, 0.12);
+        --badge-labs: rgba(168, 85, 247, 0.12);
+        --badge-meds: rgba(34, 197, 94, 0.12);
 
         /* Chat */
         --user-bubble-bg: var(--primary-color);
@@ -94,42 +100,66 @@ st.markdown("""
 
         /* Text */
         --text-std: var(--text-color);
-        --text-muted: gray;
+        --text-muted: #9ca3af;
+
+        /* Cards */
+        --card-bg: var(--secondary-background-color);
+        --card-border: rgba(128, 128, 128, 0.15);
+        --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
     }
 
-    .main .block-container { padding-top: 2rem; }
-    div[data-testid="stMetricValue"] { font-size: 1.2rem; }
+    /* Global Font */
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .main .block-container { padding-top: 1.5rem; }
+    div[data-testid="stMetricValue"] { font-size: 1.3rem; font-weight: 600; }
+    div[data-testid="stMetricLabel"] { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); }
 
     /* Severity Block */
     .severity-block {
-        padding: 10px;
-        border-radius: 0 5px 5px 0;
-        margin-bottom: 10px;
+        padding: 14px 16px;
+        border-radius: 0 8px 8px 0;
+        margin-bottom: 12px;
         color: var(--text-std);
+        box-shadow: var(--card-shadow);
+    }
+    .severity-block h4 {
+        margin: 0 0 6px 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+    }
+    .severity-block p {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.5;
     }
 
     .severity-high {
-        border-left: 5px solid var(--sev-high-border);
+        border-left: 4px solid var(--sev-high-border);
         background-color: var(--sev-high-bg);
     }
     .severity-medium {
-        border-left: 5px solid var(--sev-med-border);
+        border-left: 4px solid var(--sev-med-border);
         background-color: var(--sev-med-bg);
     }
     .severity-low {
-        border-left: 5px solid var(--sev-low-border);
+        border-left: 4px solid var(--sev-low-border);
         background-color: var(--sev-low-bg);
     }
 
     .evidence-block {
-        background-color: var(--evidence-bg);
+        background-color: var(--card-bg);
         border-left: 3px solid var(--text-muted);
-        padding: 8px;
-        margin: 5px 0;
-        font-family: monospace;
-        font-size: 0.9em;
+        padding: 10px 12px;
+        margin: 6px 0;
+        font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        font-size: 0.85em;
         color: var(--evidence-text);
-        border-radius: 4px;
+        border-radius: 0 6px 6px 0;
+        line-height: 1.5;
     }
 
     .user-bubble {
@@ -144,29 +174,154 @@ st.markdown("""
 
     .summary-card {
         padding: 15px;
-        border-radius: 8px;
-        background-color: var(--secondary-background-color);
-        border: 1px solid rgba(128, 128, 128, 0.2);
+        border-radius: 10px;
+        background-color: var(--card-bg);
+        border: 1px solid var(--card-border);
         margin-bottom: 20px;
         color: var(--text-std);
+        box-shadow: var(--card-shadow);
     }
 
     .chat-history-box {
         height: 400px;
         overflow-y: auto;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-radius: 8px;
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
         padding: 15px;
-        background-color: var(--secondary-background-color);
+        background-color: var(--card-bg);
         margin-bottom: 10px;
+    }
+
+    /* Record cards (read-only view) */
+    .record-card {
+        background-color: var(--card-bg);
+        padding: 16px;
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        box-shadow: var(--card-shadow);
+        max-height: 400px;
+        overflow-y: auto;
+        line-height: 1.6;
+    }
+    .record-card em { color: var(--text-muted); }
+
+    /* Empty state */
+    .empty-state {
+        text-align: center;
+        padding: 48px 24px;
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        border: 1px dashed var(--card-border);
+    }
+    .empty-state h3 { color: var(--text-muted); margin-bottom: 8px; font-weight: 600; }
+    .empty-state p { color: var(--text-muted); font-size: 0.92rem; }
+
+    /* Advisory banner */
+    .advisory-banner {
+        background: linear-gradient(90deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.03));
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 0.88rem;
+        color: var(--text-std);
+        margin-bottom: 16px;
+    }
+    .advisory-banner strong { color: #f59e0b; }
+
+    /* Sidebar polish */
+    section[data-testid="stSidebar"] {
+        border-right: 1px solid var(--card-border);
+    }
+    .sidebar-brand {
+        text-align: center;
+        padding: 8px 0 4px 0;
+    }
+    .sidebar-brand h1 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.02em;
+    }
+    .sidebar-brand .version {
+        display: inline-block;
+        background: rgba(139, 92, 246, 0.12);
+        color: #8b5cf6;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 12px;
+        margin-top: 4px;
+        letter-spacing: 0.02em;
+    }
+
+    /* Danger Zone */
+    .danger-zone-card {
+        background: rgba(239, 68, 68, 0.04);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 10px;
+        padding: 16px;
+        margin-top: 4px;
+    }
+    .danger-zone-card .dz-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .danger-zone-card .dz-header .dz-icon {
+        font-size: 1.1rem;
+    }
+    .danger-zone-card .dz-header h4 {
+        margin: 0;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #ef4444;
+    }
+    .danger-zone-card .dz-body {
+        font-size: 0.84rem;
+        color: var(--text-muted);
+        line-height: 1.5;
+        margin-bottom: 10px;
+    }
+    .danger-zone-card .dz-body strong {
+        color: var(--text-std);
+    }
+
+    /* Safety review progress */
+    .review-progress {
+        padding: 12px 16px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        margin-top: 8px;
+    }
+    .review-progress .step {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        font-size: 0.88rem;
+        color: var(--text-muted);
+    }
+    .review-progress .step.active {
+        color: var(--text-std);
+        font-weight: 500;
+    }
+    .review-progress .step.done {
+        color: #22c55e;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
-    st.title("🛡️ SentinelMD")
-    st.caption("Clinical Safety Copilot")
+    st.markdown("""
+    <div class="sidebar-brand">
+        <h1>🛡️ SentinelMD</h1>
+        <p style="color: var(--text-muted); margin: 2px 0 6px 0; font-size: 0.9rem;">Clinical Safety Copilot</p>
+        <span class="version">EDGE AI • v0.9</span>
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown("---")
 
 
@@ -277,15 +432,35 @@ with st.sidebar:
 
                 # Delete Patient Button (always visible when patient is selected)
                 st.sidebar.divider()
-                with st.sidebar.expander("⚠️ Danger Zone", expanded=False):
-                    st.warning(f"Permanently delete **{found_p['name']}** and all their records?")
-                    col_del1, col_del2 = st.columns(2)
-                    with col_del1:
-                        if st.button("🗑️ Delete", key="btn_delete_patient", type="primary"):
+                with st.sidebar.expander("⚙️ Patient Settings", expanded=False):
+                    enc_count = len(st.session_state.patient_service.get_encounters(found_p["id"]))
+                    st.markdown(f"""
+                    <div class="danger-zone-card">
+                        <div class="dz-header">
+                            <span class="dz-icon">🗑️</span>
+                            <h4>Delete Patient</h4>
+                        </div>
+                        <div class="dz-body">
+                            Remove <strong>{found_p['name']}</strong> and
+                            <strong>{enc_count}</strong> encounter{'s' if enc_count != 1 else ''}
+                            permanently. This action cannot be undone.
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    if not st.session_state.get("_confirm_delete"):
+                        if st.button("Delete Patient…", key="btn_delete_patient", type="secondary", use_container_width=True):
                             st.session_state._confirm_delete = True
-                    with col_del2:
-                        if st.session_state.get("_confirm_delete"):
-                            if st.button("✅ Confirm", key="btn_confirm_delete"):
+                            st.rerun()
+                    else:
+                        st.markdown(f'<p style="text-align:center; font-size:0.88rem; color:#ef4444; font-weight:600; margin: 8px 0 4px 0;">⚠️ Are you sure? This is irreversible.</p>', unsafe_allow_html=True)
+                        col_del1, col_del2 = st.columns(2)
+                        with col_del1:
+                            if st.button("Cancel", key="btn_cancel_delete", use_container_width=True):
+                                st.session_state._confirm_delete = False
+                                st.rerun()
+                        with col_del2:
+                            if st.button("🗑️ Confirm Delete", key="btn_confirm_delete", type="primary", use_container_width=True):
                                 success = st.session_state.patient_service.delete_patient(found_p["id"])
                                 if success:
                                     st.session_state.current_patient = None
@@ -303,18 +478,10 @@ with st.sidebar:
     # Advanced / Technical Section (Collapsed by default)
     with st.expander("🛠️ Advanced Configuration", expanded=False):
         # 1. Review Engine
-        model_map = {
-            "Standard Safety Engine": "amsaravi/medgemma-4b-it:q6",
-            "Test Mode (Mock)": "mock-model"
-        }
-
-        display_name = st.selectbox(
-            "Inference Engine",
-            options=list(model_map.keys()),
-            index=0
-        )
-        selected_model = model_map[display_name]
+        selected_model = "amsaravi/medgemma-4b-it:q6"
         st.session_state.backend_type = "ollama"
+        st.markdown("**Inference Engine**")
+        st.caption("🧠 MedGemma 4B (Local, Quantized)")
 
         # Init Services (Silent)
         # Force re-init to pick up new methods
@@ -362,7 +529,7 @@ with st.sidebar:
     st.success("✅ System Ready (Secure)")
 
 # Main Layout
-st.warning("⚠️ **ADVISORY ONLY**: Identifying safety risks. Not a substitute for clinical judgment.")
+st.markdown('<div class="advisory-banner">⚠️ <strong>ADVISORY ONLY</strong> — Identifying safety risks. Not a substitute for clinical judgment.</div>', unsafe_allow_html=True)
 
 # Global Inputs
 record: Optional[PatientRecord] = None
@@ -529,30 +696,30 @@ if input_mode == "Patient Records":
             # We'll render the formatted view here to be safe/useful
             if not note_in and not labs_in and not meds_in:
                  st.markdown("""
-                 <div style="text-align: center; padding: 40px; background-color: #f8f9fa; border-radius: 10px; border: 1px dashed #ccc;">
-                    <h3 style="color: #6c757d; margin-bottom: 10px;">📭 Patient Record is Empty</h3>
-                    <p style="color: #6c757d;">No clinical data has been recorded yet.</p>
-                    <p style="color: #495057; font-size: 0.9em;">Click the <b>✏️ Edit Record</b> button above to start documenting.</p>
+                 <div class="empty-state">
+                    <h3>📭 Patient Record is Empty</h3>
+                    <p>No clinical data has been recorded yet.</p>
+                    <p>Click the <b>✏️ Edit Record</b> button above to start documenting.</p>
                  </div>
                  """, unsafe_allow_html=True)
             else:
                  c1, c2, c3 = st.columns(3)
 
                  # Helper style
-                 box_style = "background-color:#ffffff; padding:15px; border-radius:8px; border: 1px solid #e9ecef; box-shadow: 0 1px 3px rgba(0,0,0,0.05); max-height:400px; overflow-y:auto;"
+                 box_style = "record-card"
 
                  with c1:
                      st.markdown("### 📝 Clinical Note")
-                     content = note_in if note_in else '<em style="color:#aaa">No note recorded.</em>'
-                     st.markdown(f"<div style='{box_style}'>{content}</div>", unsafe_allow_html=True)
+                     content = note_in if note_in else '<em>No note recorded.</em>'
+                     st.markdown(f'<div class="{box_style}">{content}</div>', unsafe_allow_html=True)
                  with c2:
                      st.markdown("### 🧪 Labs")
-                     content = labs_in if labs_in else '<em style="color:#aaa">No labs recorded.</em>'
-                     st.markdown(f"<div style='{box_style} white-space: pre-wrap;'>{content}</div>", unsafe_allow_html=True)
+                     content = labs_in if labs_in else '<em>No labs recorded.</em>'
+                     st.markdown(f'<div class="{box_style}" style="white-space: pre-wrap;">{content}</div>', unsafe_allow_html=True)
                  with c3:
                      st.markdown("### 💊 Medications")
-                     content = meds_in if meds_in else '<em style="color:#aaa">No medications recorded.</em>'
-                     st.markdown(f"<div style='{box_style} white-space: pre-wrap;'>{content}</div>", unsafe_allow_html=True)
+                     content = meds_in if meds_in else '<em>No medications recorded.</em>'
+                     st.markdown(f'<div class="{box_style}" style="white-space: pre-wrap;">{content}</div>', unsafe_allow_html=True)
 
 
         # 5. Pipeline Handoff (Common Logic)
@@ -631,11 +798,35 @@ elif input_mode == "Paste Text":
                     os.remove(tmp_path)
 
                     st.session_state.note_in_val = text
-                    st.toast("✅ Transcription Complete!", icon="🎙️")
+
+                    # --- NEW: "Voice-to-Chart" Auto-Extraction ---
+                    with st.spinner("✨ Extraction: Parsing Meds & Labs from dictation..."):
+                        if "fact_extractor" not in st.session_state:
+                            model_name = os.getenv("OLLAMA_MODEL", "amsaravi/medgemma-4b-it:q6")
+                            st.session_state.fact_extractor = FactExtractor(
+                                backend_type="ollama",
+                                backend_url="http://localhost:11434",
+                                model=model_name
+                            )
+
+                        parsed = st.session_state.fact_extractor.parse_dictation(text)
+
+                        # Update session state with parsed values
+                        st.session_state.note_in_val = parsed.get("note_section", text)
+                        st.session_state.meds_in_val = parsed.get("medications", "")
+                        st.session_state.labs_in_val = parsed.get("labs", "")
+
+                        # Set a flag to show the AI badge
+                        st.session_state.voice_parsed_success = True
+
+                    n_meds = len(st.session_state.meds_in_val.splitlines()) if st.session_state.meds_in_val else 0
+                    n_labs = len(st.session_state.labs_in_val.splitlines()) if st.session_state.labs_in_val else 0
+
+                    st.toast(f"✅ Voice-to-Chart Complete! Found {n_meds} meds, {n_labs} labs.", icon="🪄")
                     st.rerun()  # Force clean redraw to prevent UI ghosting
 
                 except Exception as e:
-                    st.error(f"Transcription Error: {e}")
+                    st.error(f"Processing Error: {e}")
 
     # Sync Text Area with Session State
     if "note_in_val" not in st.session_state: st.session_state.note_in_val = ""
@@ -643,44 +834,36 @@ elif input_mode == "Paste Text":
     if "labs_in_val" not in st.session_state: st.session_state.labs_in_val = ""
 
     # Check if voice was used (transcription exists)
-    has_voice_input = bool(st.session_state.note_in_val.strip())
+    # Init widget defaults from session state
+    if "widget_paste_note_struct" not in st.session_state: st.session_state.widget_paste_note_struct = st.session_state.get("note_in_val", "")
+    if "widget_paste_meds" not in st.session_state: st.session_state.widget_paste_meds = st.session_state.get("meds_in_val", "")
+    if "widget_paste_labs" not in st.session_state: st.session_state.widget_paste_labs = st.session_state.get("labs_in_val", "")
 
-    if has_voice_input:
-        # Unified view for voice dictation
-        st.markdown("### 📝 Your Dictation")
-        st.info("💡 Your voice recording has been transcribed below. All medications, labs, and clinical context mentioned will be analyzed together.")
+    # Check for "Voice-to-Chart" success
+    if st.session_state.get("voice_parsed_success", False):
+        st.info("✨ **AI Scribe Active**: Medications and Labs have been automatically extracted from your dictation.", icon="🪄")
 
-        # Init widget from state
-        if "widget_paste_note" not in st.session_state:
-             st.session_state.widget_paste_note = st.session_state.get("note_in_val", "")
+    # Structured input view (Always visible now)
+    with col_p1:
+            note_in = st.text_area("Clinical Note", height=300,
+                                placeholder="Example:\nPt presented with weakness...\nPMH: CKD, HTN...",
+                                key="widget_paste_note_struct",
+                                help="Narrative section extracted from dictation")
+            st.session_state.note_in_val = note_in
 
-        note_in = st.text_area("Full Clinical Context", height=250, key="widget_paste_note",
-                               help="Edit your dictation if needed. The AI will parse medications and labs automatically.")
-        # Sync back
-        st.session_state.note_in_val = note_in
+    with col_p2:
+            labs_in = st.text_area("Labs", height=300,
+                                placeholder="Example:\nPotassium: 6.0 mmol/L\nCreatinine: 2.1 mg/dL",
+                                key="widget_paste_labs",
+                                help="Auto-extracted labs")
+            st.session_state.labs_in_val = labs_in
 
-        labs_in = ""
-        meds_in = ""
-    else:
-        # Structured input view (no voice yet)
-        with col_p1:
-             # Init widget
-             if "widget_paste_note_struct" not in st.session_state: st.session_state.widget_paste_note_struct = st.session_state.get("note_in_val", "")
-
-             note_in = st.text_area("Clinical Note", height=300,
-                                  placeholder="Example:\nPt presented with weakness...\nPMH: CKD, HTN...",
-                                  key="widget_paste_note_struct")
-             st.session_state.note_in_val = note_in
-
-        with col_p2:
-             if "widget_paste_labs" not in st.session_state: st.session_state.widget_paste_labs = st.session_state.get("labs_in_val", "")
-             labs_in = st.text_area("Labs", height=300, placeholder="Example:\nPotassium: 6.0 mmol/L\nCreatinine: 2.1 mg/dL", key="widget_paste_labs")
-             st.session_state.labs_in_val = labs_in
-
-        with col_p3:
-             if "widget_paste_meds" not in st.session_state: st.session_state.widget_paste_meds = st.session_state.get("meds_in_val", "")
-             meds_in = st.text_area("Medications", height=300, placeholder="Example:\nLisinopril 10mg daily\nSpironolactone 25mg daily", key="widget_paste_meds")
-             st.session_state.meds_in_val = meds_in
+    with col_p3:
+            meds_in = st.text_area("Medications", height=300,
+                                placeholder="Example:\nLisinopril 10mg daily\nSpironolactone 25mg daily",
+                                key="widget_paste_meds",
+                                help="Auto-extracted medications")
+            st.session_state.meds_in_val = meds_in
 
     # Bypass Adapter (Raw Strings)
     standardized_inputs = {
@@ -830,9 +1013,7 @@ if input_mode != "Patient Records":
 
 # Tab 1: Safety Review
 with tab_safety:
-    col_act, col_info = st.columns([1, 4])
-    with col_act:
-        run_btn = st.button("▶️ Run Safety Review", type="primary", use_container_width=True, key="btn_run_safety")
+    run_btn = st.button("🛡️  Run Safety Review", type="primary", use_container_width=False, key="btn_run_safety")
 
     if run_btn:
         # Validation
@@ -853,98 +1034,116 @@ with tab_safety:
             if cache_key in st.session_state.inference_cache:
                 cached_data = st.session_state.inference_cache[cache_key]
                 st.session_state.last_report = cached_data["report"]
-                st.info("⚡ Analysis loaded from cache")
+                st.markdown("""
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 16px;
+                            background: rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.25);
+                            border-radius:8px; margin:8px 0;">
+                    <span style="font-size:1.2rem;">⚡</span>
+                    <span style="font-size:0.9rem; color:var(--text-std); font-weight:500;">
+                        Analysis loaded from cache — instant result
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                with st.status("🚀 Running Safety Review (Local Engine)...", expanded=True) as status:
+                with st.status("🛡️ Running Safety Review…", expanded=True) as status:
                     t0 = time.time()
-                    # status.write("Extracting clinical entities...") # Optional progress steps
 
+                    status.write("✅ Validating clinical inputs…")
                     note_text = standardized_inputs["note_text"]
                     labs_text = standardized_inputs["labs_text"]
                     meds_text = standardized_inputs["meds_text"]
 
-                    # Audit Execution
+                    # DDI pre-scan (deterministic, instant)
+                    from src.core.ddi_checker import extract_medications, check_interactions
+                    parsed_meds = extract_medications(meds_text)
+                    ddi_hits = check_interactions(parsed_meds)
+                    n_meds = len(parsed_meds)
+                    n_ddi = len(ddi_hits)
+                    if n_ddi > 0:
+                        status.write(f"💊 DDI pre-scan: {n_meds} medications → **{n_ddi} interaction{'s' if n_ddi != 1 else ''} detected**")
+                    else:
+                        status.write(f"💊 DDI pre-scan: {n_meds} medications — no known interactions")
+
+                    status.write("🧠 Analyzing with MedGemma 4B (on-device)…")
                     report = st.session_state.audit_service.run_safety_review(
                         note_text, labs_text, meds_text
                     )
 
-                    status.update(label="✅ Analysis Complete", state="complete", expanded=False)
+                    elapsed = time.time() - t0
+                    status.write(f"📋 Report generated — {elapsed:.1f}s")
 
-                    if report:
-                        st.session_state.last_report = report
-                        st.session_state.inference_cache[cache_key] = {"report": report}
+                    n_flags = len(report.flags) if report and hasattr(report, 'flags') else 0
+                    status.update(
+                        label=f"✅ Analysis complete · {n_flags} flag{'s' if n_flags != 1 else ''} · {elapsed:.1f}s",
+                        state="complete",
+                        expanded=False
+                    )
 
-                        # --- AUTO-DETECT PATIENT ---
-                        # If the LLM found demographics, try to match or create patient
-                        if report.patient_demographics and "name" in report.patient_demographics:
-                            detected_name = report.patient_demographics["name"]
-                            detected_dob = report.patient_demographics.get("dob", "Unknown")
+                if report:
+                    st.session_state.last_report = report
+                    st.session_state.inference_cache[cache_key] = {"report": report}
 
-                            # Only act if we aren't already locked onto a specific patient (or are in Guest/New mode)
-                            # Actually, even if locked, we might want to warn? For now, assume Guest/New.
-                            current_p = st.session_state.get("current_patient")
+                    # --- AUTO-DETECT PATIENT ---
+                    if report.patient_demographics and "name" in report.patient_demographics:
+                        detected_name = report.patient_demographics["name"]
+                        detected_dob = report.patient_demographics.get("dob", "Unknown")
 
-                            if not current_p:
-                                # Search existing
-                                all_p = st.session_state.patient_service.get_all_patients()
-                                match = None
-                                for p in all_p:
-                                    if p["name"].lower() == detected_name.lower(): # Simple match
-                                        match = p
-                                        break
+                        current_p = st.session_state.get("current_patient")
 
-                                if match:
-                                    st.session_state.current_patient = match
-                                    st.toast(f"Matched existing patient: {detected_name}", icon="🔗")
+                        if not current_p:
+                            all_p = st.session_state.patient_service.get_all_patients()
+                            match = None
+                            for p in all_p:
+                                if p["name"].lower() == detected_name.lower():
+                                    match = p
+                                    break
+
+                            if match:
+                                st.session_state.current_patient = match
+                                st.toast(f"Matched existing patient: {detected_name}", icon="🔗")
+                            else:
+                                new_p = st.session_state.patient_service.create_patient(detected_name, detected_dob)
+                                if new_p is None:
+                                    st.warning(f"Patient '{detected_name}' already exists - skipping auto-create")
                                 else:
-                                    # Create new (only if not duplicate)
-                                    new_p = st.session_state.patient_service.create_patient(detected_name, detected_dob)
-                                    if new_p is None:
-                                        st.warning(f"Patient '{detected_name}' already exists - skipping auto-create")
-                                    else:
-                                        st.session_state.current_patient = new_p
-                                        st.toast(f"Auto-created patient: {detected_name}", icon="✨")
+                                    st.session_state.current_patient = new_p
+                                    st.toast(f"Auto-created patient: {detected_name}", icon="✨")
 
-                                # Rerun so the sidebar updates? Only if we want immediate visual feedback.
-                                # But we need to save the encounter first!
+                    # --- RECORD KEEPING ---
+                    if "current_patient" in st.session_state and st.session_state.current_patient:
+                        pat_id = st.session_state.current_patient["id"]
+                        rpt_data = {
+                            "summary": report.summary,
+                            "flags": [{"category": str(f.category), "severity": str(f.severity), "explanation": f.explanation} for f in report.flags],
+                            "confidence": report.confidence_score
+                        }
+                        st.session_state.patient_service.save_encounter(
+                            patient_id=pat_id,
+                            input_data={
+                                "note": standardized_inputs["note_text"],
+                                "meds": standardized_inputs["meds_text"],
+                                "labs": standardized_inputs["labs_text"]
+                            },
+                            report_data=rpt_data
+                        )
+                        st.toast(f"Saved to {st.session_state.current_patient['name']}", icon="💾")
 
-                        # ---------------------------
+                    # Track in session history
+                    if "review_history" not in st.session_state:
+                        st.session_state.review_history = []
+                    from datetime import datetime
+                    st.session_state.review_history.append({
+                        "timestamp": datetime.now().strftime("%I:%M %p"),
+                        "case_id": standardized_inputs.get("case_id", "Unknown"),
+                        "input_preview": (note_text[:80] + "...") if len(note_text) > 80 else note_text,
+                        "flag_count": len(report.flags),
+                        "max_severity": max([f.severity.value if hasattr(f.severity, 'value') else str(f.severity) for f in report.flags], default="NONE"),
+                        "report": report
+                    })
 
-                        # --- RECORD KEEPING ---
-                        if "current_patient" in st.session_state and st.session_state.current_patient:
-                            pat_id = st.session_state.current_patient["id"]
-                            rpt_data = {
-                                "summary": report.summary,
-                                "flags": [{"category": str(f.category), "severity": str(f.severity), "explanation": f.explanation} for f in report.flags],
-                                "confidence": report.confidence_score
-                            }
-                            st.session_state.patient_service.save_encounter(
-                                patient_id=pat_id,
-                                input_data={
-                                    "note": standardized_inputs["note_text"],
-                                    "meds": standardized_inputs["meds_text"],
-                                    "labs": standardized_inputs["labs_text"]
-                                },
-                                report_data=rpt_data
-                            )
-                            st.toast(f"Saved to {st.session_state.current_patient['name']}", icon="💾")
-
-                        # Track in session history
-                        if "review_history" not in st.session_state:
-                            st.session_state.review_history = []
-                        from datetime import datetime
-                        st.session_state.review_history.append({
-                            "timestamp": datetime.now().strftime("%I:%M %p"),
-                            "case_id": standardized_inputs.get("case_id", "Unknown"),
-                            "input_preview": (note_text[:80] + "...") if len(note_text) > 80 else note_text,
-                            "flag_count": len(report.flags),
-                            "max_severity": max([f.severity.value if hasattr(f.severity, 'value') else str(f.severity) for f in report.flags], default="NONE"),
-                            "report": report
-                        })
-
-                        st.rerun()  # Force clean redraw to prevent ghosting
-                    else:
-                        st.error("Safety Review Warning: Engine execution failed.")
+                    st.rerun()  # Force clean redraw
+                else:
+                    st.error("Safety Review Warning: Engine execution failed.")
 
     if "last_report" in st.session_state:
         report = st.session_state.last_report
@@ -1243,31 +1442,62 @@ with tab_eval:
         if not encounters:
             st.info("No saved encounters for this patient yet.")
         else:
-            for enc in encounters:
-                dt_str = enc.get("timestamp", "Unknown Date")
-                summ = enc.get("report_data", {}).get("summary", "No Summary")
-                n_flags = len(enc.get("report_data", {}).get("flags", []))
+            from datetime import datetime as _dt
 
-                with st.expander(f"📅 {dt_str} — {n_flags} Flags"):
+            for enc in encounters:
+                dt_raw = enc.get("timestamp", "Unknown Date")
+                # Format timestamp nicely
+                try:
+                    dt_obj = _dt.fromisoformat(str(dt_raw))
+                    dt_str = dt_obj.strftime("%b %d, %Y at %I:%M %p")
+                except (ValueError, TypeError):
+                    dt_str = str(dt_raw)
+
+                report_data = enc.get("report_data", {})
+                summ = report_data.get("summary", "")
+                flags = report_data.get("flags", [])
+                n_flags = len(flags)
+                input_data = enc.get("input_data", {})
+                has_audit = bool(summ or n_flags > 0)
+
+                # Build expander label
+                if has_audit:
+                    sev_icon = "🔴" if any(f.get("severity") == "HIGH" for f in flags) else ("🟠" if n_flags > 0 else "🟢")
+                    label = f"{sev_icon} {dt_str} — {n_flags} Flag{'s' if n_flags != 1 else ''}"
+                else:
+                    # Unaudited encounter — show note preview
+                    note_preview = input_data.get("note", "")[:60]
+                    if len(input_data.get("note", "")) > 60:
+                        note_preview += "..."
+                    label = f"📋 {dt_str} — Recorded (not yet audited)"
+
+                with st.expander(label, expanded=False):
+                    # Restore button + summary row
                     col_h1, col_h2 = st.columns([4, 1])
                     with col_h1:
-                        st.caption(summ)
+                        if has_audit:
+                            st.caption(f"**Analysis:** {summ}")
+                        else:
+                            st.caption("This encounter has clinical data but hasn't been audited yet.")
                     with col_h2:
-                        if st.button("Restore", key=f"rest_{enc['id']}", help="Load this encounter's data into the editor"):
-                            st.session_state.note_in_val = enc.get("input_data", {}).get("note", "")
-                            st.session_state.meds_in_val = enc.get("input_data", {}).get("meds", "")
-                            st.session_state.labs_in_val = enc.get("input_data", {}).get("labs", "")
+                        if st.button("⏪ Restore", key=f"rest_{enc['id']}", help="Load this encounter's data into the editor"):
+                            st.session_state.note_in_val = input_data.get("note", "")
+                            st.session_state.meds_in_val = input_data.get("meds", "")
+                            st.session_state.labs_in_val = input_data.get("labs", "")
                             st.toast("Restored to Editor", icon="⏪")
 
                     if n_flags > 0:
                         st.markdown("**Flags:**")
-                        for f in enc["report_data"]["flags"]:
+                        for f in flags:
                             icon = {"HIGH": "🔴", "MEDIUM": "🟠", "LOW": "🟡"}.get(f.get("severity", "MEDIUM"), "⚪")
-                            st.markdown(f"- {icon} **{f.get('category','Issue')}**: {f.get('explanation')}")
+                            cat = f.get('category', 'Issue').replace('_', ' ').title()
+                            st.markdown(f"- {icon} **[{f.get('severity', 'MEDIUM')}] {cat}**: {f.get('explanation')}")
 
-                    st.markdown("---")
-                    st.text("Input Note:")
-                    st.text(enc.get("input_data", {}).get("note", ""))
+                    # Show input preview
+                    note_text = input_data.get("note", "")
+                    if note_text:
+                        with st.expander("📝 View Clinical Note", expanded=False):
+                            st.markdown(f'<div class="record-card" style="white-space: pre-wrap; font-size: 0.9rem;">{note_text}</div>', unsafe_allow_html=True)
 
         st.divider()
 
@@ -1351,113 +1581,133 @@ DISCLAIMER: Advisory only. Consult healthcare professionals.
 def render_floating_chat(standardized_inputs):
     """
     Renders the Safety Assistant in a premium floating UI.
-    Matches the "Purple Gradient" aesthetic requested.
     """
 
     # --- CSS STYLES ---
     st.markdown("""
     <style>
-    /* 1. Floating Action Button Container */
+    /* Floating Action Button */
     div[data-testid="stPopover"] {
         position: fixed !important;
-        bottom: 30px !important;
-        right: 30px !important;
-        width: 60px !important; /* Force circle size */
-        height: 60px !important;
+        bottom: 28px !important;
+        right: 28px !important;
+        width: 56px !important;
+        height: 56px !important;
         z-index: 9999 !important;
         background-color: transparent !important;
     }
 
-    /* Target the button inside - Force it to be a circle */
     div[data-testid="stPopover"] > button {
-        background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%) !important;
+        background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
         color: white !important;
         border-radius: 50% !important;
-        width: 60px !important;
-        height: 60px !important;
-        box-shadow: 0 4px 15px rgba(74, 0, 224, 0.4) !important;
+        width: 56px !important;
+        height: 56px !important;
+        box-shadow: 0 4px 14px rgba(109, 40, 217, 0.35) !important;
         border: none !important;
-        font-size: 28px !important;
+        font-size: 24px !important;
         padding: 0 !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        transition: transform 0.2s !important;
+        transition: transform 0.2s, box-shadow 0.2s !important;
     }
 
     div[data-testid="stPopover"] > button:hover {
-        transform: scale(1.1) !important;
-        box-shadow: 0 6px 20px rgba(74, 0, 224, 0.6) !important;
+        transform: scale(1.08) !important;
+        box-shadow: 0 6px 20px rgba(109, 40, 217, 0.5) !important;
     }
 
-    /* Remove any default text/arrow from the button if possible (Streamlit adds '...') */
     div[data-testid="stPopover"] > button > div {
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
-    /* 2. Chat Bubbles */
+    /* Chat Bubbles — theme-safe */
     .chat-bubble-user {
-        background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%);
-        color: white;
-        padding: 12px 16px;
-        border-radius: 18px 18px 4px 18px; /* Tail bottom-right */
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        margin-bottom: 8px;
-        font-size: 14px;
-        line-height: 1.5;
-        max-width: 85%;
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 16px 16px 4px 16px;
+        margin-bottom: 10px;
+        font-size: 0.88rem;
+        line-height: 1.55;
+        max-width: 82%;
         float: right;
         clear: both;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
 
     .chat-bubble-bot {
-        background: #f1f2f6;
-        color: #2c3e50;
-        padding: 12px 16px;
-        border-radius: 18px 18px 18px 4px; /* Tail bottom-left */
-        margin-bottom: 8px;
-        font-size: 14px;
-        line-height: 1.5;
-        max-width: 85%;
+        background: var(--secondary-background-color);
+        color: var(--text-color);
+        padding: 10px 14px;
+        border-radius: 16px 16px 16px 4px;
+        margin-bottom: 10px;
+        font-size: 0.88rem;
+        line-height: 1.55;
+        max-width: 82%;
         float: left;
         clear: both;
-        border: 1px solid #e1e4e8;
+        border: 1px solid var(--card-border, rgba(128,128,128,0.12));
     }
 
-    /* 3. Chat Header (Simulated) */
+    /* Chat Header */
     .chat-header {
-        background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%);
-        padding: 15px;
-        border-radius: 10px 10px 0 0;
+        background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+        padding: 14px 16px;
+        border-radius: 8px 8px 0 0;
         color: white;
-        margin: -1rem -1rem 1rem -1rem; /* Negative margins to fill popover */
+        margin: -1rem -1rem 0.75rem -1rem;
         display: flex;
         align-items: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        gap: 10px;
     }
     .chat-header-avatar {
-        font-size: 24px;
-        margin-right: 12px;
-        background: rgba(255,255,255,0.2);
+        font-size: 20px;
+        background: rgba(255,255,255,0.15);
         border-radius: 50%;
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
     }
     .chat-header-info h4 {
         margin: 0;
         color: white;
-        font-size: 16px;
+        font-size: 0.92rem;
         font-weight: 600;
     }
     .chat-header-info p {
         margin: 0;
-        color: rgba(255,255,255,0.8);
-        font-size: 12px;
+        color: rgba(255,255,255,0.7);
+        font-size: 0.75rem;
+    }
+
+    /* Empty chat state */
+    .chat-empty {
+        text-align: center;
+        padding: 32px 16px;
+        color: var(--text-muted, #9ca3af);
+    }
+    .chat-empty .chat-empty-icon {
+        font-size: 2rem;
+        margin-bottom: 8px;
+        opacity: 0.6;
+    }
+    .chat-empty h5 {
+        margin: 0 0 4px 0;
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--text-color);
+    }
+    .chat-empty p {
+        margin: 0;
+        font-size: 0.82rem;
+        line-height: 1.5;
     }
 
     </style>
@@ -1465,71 +1715,70 @@ def render_floating_chat(standardized_inputs):
 
     # The Popover
     with st.popover("💬", use_container_width=False):
-            # Header
+        # Header
+        st.markdown("""
+        <div class="chat-header">
+            <div class="chat-header-avatar">🛡️</div>
+            <div class="chat-header-info">
+                <h4>Sentinel Assistant</h4>
+                <p>Ask about flags, evidence, or compliance</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # --- CHAT LOGIC ---
+        if "chat_session" not in st.session_state:
+            st.session_state.chat_session = ChatSession()
+
+        report = st.session_state.get("last_report")
+
+        if not report:
             st.markdown("""
-            <div class="chat-header">
-                <div class="chat-header-avatar">🛡️</div>
-                <div class="chat-header-info">
-                    <h4>Sentinel Assistant</h4>
-                    <p>Safety & Compliance Bot</p>
-                </div>
+            <div class="chat-empty">
+                <div class="chat-empty-icon">🛡️</div>
+                <h5>No analysis loaded</h5>
+                <p>Run a <b>Safety Review</b> first,<br>then ask me about the results.</p>
             </div>
             """, unsafe_allow_html=True)
+        else:
+            # Init Context if needed
+            if not st.session_state.chat_session.history and hasattr(st.session_state, 'chat_service'):
+                audit_dict = report.model_dump()
+                raw_note = standardized_inputs.get('note_text', '')
+                input_summary_txt = f"Clinical Note Content:\n{raw_note[:2000]}"
 
-            # --- CHAT LOGIC ---
-            if "chat_session" not in st.session_state:
-                st.session_state.chat_session = ChatSession()
+                st.session_state.chat_session = st.session_state.chat_service.reset_session(
+                    st.session_state.chat_session,
+                    audit_dict,
+                    input_summary_txt
+                )
 
-            report = st.session_state.get("last_report")
+            # Render Chat History
+            chat_cont = st.container(height=380)
+            with chat_cont:
+                for msg in st.session_state.chat_session.history:
+                    if msg.role == "user":
+                        st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<div class="chat-bubble-bot">{msg.content}</div>', unsafe_allow_html=True)
 
-            if not report:
-                st.markdown("""
-                <div style="text-align: center; padding: 20px; color: #666;">
-                    <br>
-                    Run a <b>Safety Analysis</b> first to activate the bot.
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                 # Init Context if needed
-                if not st.session_state.chat_session.history and hasattr(st.session_state, 'chat_service'):
-                    audit_dict = report.model_dump()
-                    raw_note = standardized_inputs.get('note_text', '')
-                    input_summary_txt = f"Clinical Note Content:\n{raw_note[:2000]}"
+                st.markdown('<div style="clear: both;"></div>', unsafe_allow_html=True)
 
-                    st.session_state.chat_session = st.session_state.chat_service.reset_session(
-                        st.session_state.chat_session,
-                        audit_dict,
-                        input_summary_txt
-                    )
+            # Input Area
+            if query := st.chat_input("Ask about this review…", key="float_chat_premium"):
+                st.session_state.chat_session.history.append(ChatMessage(role="user", content=query))
+                st.rerun()
 
-                # Render Chat History
-                chat_cont = st.container(height=350)
+            # Generation
+            if st.session_state.chat_session.history and st.session_state.chat_session.history[-1].role == "user":
                 with chat_cont:
-                    # History
-                    for msg in st.session_state.chat_session.history:
-                         if msg.role == "user":
-                             st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
-                         else:
-                             st.markdown(f'<div class="chat-bubble-bot">{msg.content}</div>', unsafe_allow_html=True)
-
-                    # Spacer to ensure scrolling hits bottom
-                    st.markdown('<div style="clear: both;"></div>', unsafe_allow_html=True)
-
-                # Input Area
-                if query := st.chat_input("Type a message...", key="float_chat_premium"):
-                    st.session_state.chat_session.history.append(ChatMessage(role="user", content=query))
-                    st.rerun()
-
-                # Generation
-                if st.session_state.chat_session.history and st.session_state.chat_session.history[-1].role == "user":
-                    with chat_cont:
-                        with st.spinner("Thinking..."):
-                             reply = st.session_state.chat_service.generate_reply(
-                                 st.session_state.chat_session,
-                                 st.session_state.chat_session.history[-1].content
-                             )
-                             st.session_state.chat_session.history.append(ChatMessage(role="assistant", content=reply))
-                             st.rerun()
+                    with st.spinner("Thinking…"):
+                        reply = st.session_state.chat_service.generate_reply(
+                            st.session_state.chat_session,
+                            st.session_state.chat_session.history[-1].content
+                        )
+                        st.session_state.chat_session.history.append(ChatMessage(role="assistant", content=reply))
+                        st.rerun()
 
 # Call the function
 render_floating_chat(standardized_inputs)

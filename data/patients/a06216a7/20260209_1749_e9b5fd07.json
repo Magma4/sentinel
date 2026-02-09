@@ -1,0 +1,22 @@
+{
+  "id": "e9b5fd07",
+  "patient_id": "a06216a7",
+  "timestamp": "2026-02-09T17:49:20.444752",
+  "inputs": {
+    "note": "Patient: James Wilson\nDOB: 11/22/1958 | MRN: MRN-4592\n\nDischarge Summary \u2014 Cardiology Service\n\nPrincipal Diagnosis: Anterior STEMI\nIntervention: Drug-eluting stent (DES) to LAD, day 3 post-PCI\n\nHospital Course: 68M admitted via EMS with substernal chest pain and ST-elevation in V1-V4. Emergent cath showed 95% LAD occlusion. Successful DES placement. Post-procedure course uncomplicated.\n\nEcho: LVEF 40% with anterior wall hypokinesis\nTroponin I peaked at 12.5 ng/mL\n\nDischarge Medications:\n  - Aspirin 81mg daily\n  - Atorvastatin 80mg daily\n  - Lisinopril 5mg daily\n  - Clopidogrel 75mg daily\n\nFollow-up: Cardiology in 2 weeks. Cardiac rehab referral placed.",
+    "meds": "Aspirin 81mg PO Daily\nAtorvastatin 80mg PO Daily\nLisinopril 5mg PO Daily\nClopidogrel 75mg PO Daily",
+    "labs": "Troponin I: 12.5 ng/mL (H \u2014 peaked)\nLVEF: 40%\nLDL: 142 mg/dL (H)\nCreatinine: 1.1 mg/dL\nK+: 4.2 mmol/L"
+  },
+  "report": {
+    "summary": "Detected 1 safety concern: Temporal Contradiction.",
+    "flags": [
+      {
+        "category": "SafetyCategory.OTHER",
+        "severity": "SafetySeverity.MEDIUM",
+        "explanation": "The patient is prescribed Lisinopril 5mg daily, but the medication list shows Lisinopril 5mg PO Daily. This is a temporal contradiction, as the medication list is outdated."
+      }
+    ],
+    "confidence": 0.8
+  },
+  "audio_file": null
+}

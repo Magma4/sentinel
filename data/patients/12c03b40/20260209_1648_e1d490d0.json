@@ -1,0 +1,22 @@
+{
+  "id": "e1d490d0",
+  "patient_id": "12c03b40",
+  "timestamp": "2026-02-09T16:48:40.031178",
+  "inputs": {
+    "note": "Patient: Afia Mensah\nDOB: 09/12/1988 | MRN: MRN-0033\n\nSubjective: 38F presents with sore throat, fever (38.8\u00b0C) x2 days. History of severe hives with Penicillin as a child.\n\nPMH: Asthma (mild intermittent), Penicillin allergy (urticaria)\nAllergies: PENICILLIN (severe hives/urticaria)\n\nObjective:\n  Vitals: BP 118/72, HR 90, Temp 38.8\u00b0C, SpO2 99%\n  HEENT: Tonsillar exudates, posterior pharyngeal erythema\n  Lungs: Clear bilaterally, no wheezing\n\nAssessment: Strep Pharyngitis\n\nPlan: Start Amoxicillin 500mg TID x 10 days. Albuterol PRN for asthma. Follow up if worsening.",
+    "meds": "Amoxicillin 500mg PO TID (NEW)\nAlbuterol 90mcg INH PRN\nMontelukast 10mg PO Daily",
+    "labs": "Rapid Strep: POSITIVE\nWBC: 12.8 K/uL (H)\nCRP: 38 mg/L (H)"
+  },
+  "report": {
+    "summary": "Detected 1 safety concern: Medication-Allergy conflict.",
+    "flags": [
+      {
+        "category": "SafetyCategory.ALLERGY",
+        "severity": "SafetySeverity.HIGH",
+        "explanation": "Patient has a documented Penicillin allergy (urticaria) and is being prescribed Amoxicillin (a penicillin-class antibiotic). This presents a potential medication-allergy conflict that warrants clinical review."
+      }
+    ],
+    "confidence": 0.8
+  },
+  "audio_file": null
+}

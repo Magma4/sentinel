@@ -129,14 +129,72 @@ class PatientService:
             return []
 
         encounters = []
-        for filename in os.listdir(patient_dir):
-            if filename.endswith(".json"):
-                try:
-                    with open(os.path.join(patient_dir, filename), "r") as f:
-                        encounters.append(json.load(f))
-                except Exception:
-                    continue # Skip corrupted files
+        if os.path.exists(patient_dir):
+            for filename in os.listdir(patient_dir):
+                if filename.endswith(".json"):
+                    try:
+                        with open(os.path.join(patient_dir, filename), "r") as f:
+                            encounters.append(json.load(f))
+                    except Exception:
+                        continue # Skip corrupted files
 
         # Sort by timestamp descending
         encounters.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
         return encounters
+
+    def get_population_stats(self) -> Dict[str, Any]:
+        """Aggregates safety statistics across the entire patient population."""
+        patients = self.get_all_patients()
+        stats = {
+            "total_patients": len(patients),
+            "risk_distribution": {"High": 0, "Medium": 0, "Low": 0, "Unknown": 0},
+            "top_flags": {},
+            "conditions": {}
+        }
+
+        for p in patients:
+            encounters = self.get_encounters(p["id"])
+            if not encounters:
+                stats["risk_distribution"]["Unknown"] += 1
+                continue
+
+            # Analyze latest encounter
+            latest = encounters[0]
+            report = latest.get("report", {})
+
+            # 1. Risk Level (Max Severity)
+            flags = report.get("flags", [])
+            if not flags:
+                stats["risk_distribution"]["Low"] += 1
+            else:
+                max_sev = "Low"
+                for f in flags:
+                    sev = f.get("severity", "LOW").upper()
+                    if sev == "HIGH":
+                        max_sev = "High"
+                        break
+                    elif sev == "MEDIUM" and max_sev != "High":
+                        max_sev = "Medium"
+                stats["risk_distribution"][max_sev] += 1
+
+            # 2. Top Flags
+            for f in flags:
+                cat = f.get("category", "OTHER")
+                stats["top_flags"][cat] = stats["top_flags"].get(cat, 0) + 1
+
+            # 3. Conditions (from Extract)
+            # Note: "conditions" might be in inputs if extracted, or in report metadata
+            # For now, we'll try to parse from the note or use a placeholder if structured data missing
+            # In a real system, we'd use the structured 'extraction' result.
+            # Here we'll just check the 'inputs' for mentions of common conditions in the 'history' section
+            # or rely on the FactExtractor output if saved.
+            # Current save_encounter saves 'inputs' and 'report'.
+            # If we want conditions, we should probably save extraction result too.
+            # For this demo, let's skip deep condition parsing and just count flags.
+            pass
+
+        # Sort top flags
+        sorted_flags = dict(sorted(stats["top_flags"].items(), key=lambda item: item[1], reverse=True)[:5])
+        stats["top_flags"] = sorted_flags
+
+        return stats

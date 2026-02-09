@@ -7,14 +7,16 @@ from .preprocess import trim_note, trim_labs, trim_meds
 class FactExtractor:
     """Extracts clinical facts using MedGemma or Mock backend."""
 
-    def __init__(self, backend_url: Optional[str] = None, backend_type: str = "mock"):
+    description = "Extracts clinical facts using MedGemma or Mock backend."
+
+    def __init__(self, backend_url: Optional[str] = None, backend_type: str = "mock", model: str = "amsaravi/medgemma-4b-it:q6"):
         self.backend_url = backend_url
         self.backend_type = backend_type
         self.prompt_template = self._load_prompt()
 
         self.client = LocalLLMClient(
             backend=backend_type,
-            model="medgemma",
+            model=model,
             host=backend_url
         )
 
@@ -76,6 +78,50 @@ class FactExtractor:
                 "_metadata": {"execution_time": time.time() - start_time},
                 "error": str(e)
             }
+
+    def parse_dictation(self, transcript: str) -> Dict[str, str]:
+        """Parses a raw dictation transcript into structured sections."""
+        if not transcript or not transcript.strip():
+            return {"note_section": "", "medications": "", "labs": ""}
+
+        if self.backend_type == "mock":
+            # Simple heuristic mock
+            lower = transcript.lower()
+            meds = []
+            labs = []
+            note = transcript
+            if "lisinopril" in lower: meds.append("Lisinopril 10mg")
+            if "aspirin" in lower: meds.append("Aspirin 81mg")
+            if "troponin" in lower: labs.append("Troponin: 0.04")
+            if "creatinine" in lower: labs.append("Creatinine: 1.1")
+
+            return {
+                "note_section": note,
+                "medications": "\n".join(meds),
+                "labs": "\n".join(labs)
+            }
+
+        # Real LLM call
+        prompt_path = os.path.join("prompts", "dictation_parse.md")
+        try:
+            with open(prompt_path, "r") as f:
+                prompt_template = f.read()
+        except FileNotFoundError:
+            return {"note_section": transcript, "medications": "", "labs": "", "error": "Prompt missing"}
+
+        try:
+            input_vars = {"TRANSCRIPT": transcript}
+            llm_options = {"num_ctx": 4096, "temperature": 0.0}
+            result = self.client.generate_json(prompt_template, input_vars, llm_options)
+
+            # Ensure keys exist
+            return {
+                "note_section": result.get("note_section", transcript),
+                "medications": result.get("medications", ""),
+                "labs": result.get("labs", "")
+            }
+        except Exception as e:
+            return {"note_section": transcript, "medications": "", "labs": "", "error": str(e)}
 
     def _mock_extraction(self, note: str, labs: str, meds: str) -> Dict[str, Any]:
         """Deterministic regex-based mock for testing."""

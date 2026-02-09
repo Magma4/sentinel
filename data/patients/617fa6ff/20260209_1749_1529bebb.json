@@ -1,0 +1,12 @@
+{
+  "id": "1529bebb",
+  "patient_id": "617fa6ff",
+  "timestamp": "2026-02-09T17:49:44.131309",
+  "inputs": {
+    "note": "Patient: Kwesi Appiah\nDOB: 12/05/1975 | MRN: MRN-3301\n\nSubjective: 51M presents for chronic low back pain follow-up. Reports pain 8/10, radiating to left leg. Current regimen inadequate. Reports significant anxiety and insomnia.\n\nPMH: Chronic lumbar radiculopathy (L4-L5 disc herniation), Generalized Anxiety Disorder, Insomnia\nAllergies: Codeine (nausea)\n\nObjective:\n  Vitals: BP 130/82, HR 70, Temp 37.0\u00b0C\n  Neuro: Decreased sensation L5 dermatome left, weakness in left EHL 4/5\n  Straight leg raise: Positive at 40\u00b0 left\n\nAssessment: Chronic lumbar radiculopathy with neuropathic pain\n\nPlan: Continue OxyContin 20mg BID. Add Xanax 0.5mg TID for anxiety. Gabapentin 300mg TID for neuropathic pain. MRI lumbar spine ordered. Neurosurgery referral.",
+    "labs": "CBC: WNL\nBMP: WNL\nUrine Drug Screen: Positive for oxycodone (expected)\nLFTs: AST 28, ALT 32 (normal)",
+    "meds": "OxyContin 20mg PO BID\nXanax 0.5mg PO TID\nGabapentin 300mg PO TID\nIbuprofen 400mg PO PRN\nTrazodone 50mg PO QHS PRN"
+  },
+  "report": {},
+  "audio_file": null
+}

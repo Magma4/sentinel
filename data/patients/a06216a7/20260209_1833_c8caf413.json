@@ -1,0 +1,22 @@
+{
+  "id": "c8caf413",
+  "patient_id": "a06216a7",
+  "timestamp": "2026-02-09T18:33:21.742925",
+  "inputs": {
+    "note": "James Wilson is starting aspirin 81 milligrams. Troponin was 0.04.",
+    "meds": "aspirin 81 milligrams",
+    "labs": "troponin 0.04"
+  },
+  "report": {
+    "summary": "Detected 1 safety concern: Temporal Contradiction.",
+    "flags": [
+      {
+        "category": "SafetyCategory.OTHER",
+        "severity": "SafetySeverity.MEDIUM",
+        "explanation": "The patient is starting aspirin 81 milligrams, and the troponin level is 0.04. While this is a low troponin level, it is important to consider the potential for aspirin to affect troponin levels, especially in patients with underlying cardiac conditions. It is important to monitor troponin levels after starting aspirin."
+      }
+    ],
+    "confidence": 0.8
+  },
+  "audio_file": null
+}

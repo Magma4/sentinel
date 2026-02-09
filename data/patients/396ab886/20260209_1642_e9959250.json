@@ -1,0 +1,12 @@
+{
+  "id": "e9959250",
+  "patient_id": "396ab886",
+  "timestamp": "2026-02-09T16:42:25.767458",
+  "inputs": {
+    "note": "Patient: Robert Johnson\nDOB: 01/30/1971 | MRN: MRN-0031\n\nSubjective: 55M presents with progressive fatigue, muscle weakness, and intermittent palpitations x2 weeks. Denies chest pain or SOB.\n\nPMH: CKD Stage 3b (eGFR 38), Hypertension, Heart Failure (EF 35%)\nAllergies: Sulfa drugs\n\nObjective:\n  Vitals: BP 155/95, HR 72 (irregular), Temp 37.0\u00b0C\n  CV: Irregularly irregular rhythm, no murmurs\n  Ext: 1+ bilateral pedal edema\n\nAssessment: Hyperkalemia in setting of CKD + ACEi + K-sparing diuretic\n\nPlan:\n  - Continue current medications\n  - Recheck BMP in 1 week\n  - Low-potassium diet counseling",
+    "labs": "Potassium: 6.2 mmol/L (H \u2014 CRITICAL)\nCreatinine: 2.4 mg/dL (H)\neGFR: 38 mL/min (L)\nBUN: 42 mg/dL (H)\nMagnesium: 1.6 mg/dL (L)",
+    "meds": "Lisinopril 20mg PO Daily\nSpironolactone 25mg PO Daily\nAspirin 81mg PO Daily\nFurosemide 40mg PO Daily\nCarvedilol 12.5mg PO BID"
+  },
+  "report": {},
+  "audio_file": null
+}

@@ -839,10 +839,11 @@ elif input_mode == "Population Health":
                 max_sev = "Low"
                 for f in r_flags:
                     sev = f.get("severity", "LOW").upper()
-                    if sev == "HIGH":
+                    # Handle "SafetySeverity.HIGH" or "HIGH"
+                    if "HIGH" in sev:
                         max_sev = "High"
                         break
-                    elif sev == "MEDIUM" and max_sev != "High":
+                    elif "MEDIUM" in sev and max_sev != "High":
                         max_sev = "Medium"
                 risk = max_sev
 
@@ -929,6 +930,11 @@ elif input_mode == "Paste Text":
                         st.session_state.note_in_val = parsed.get("note_section", text)
                         st.session_state.meds_in_val = parsed.get("medications", "")
                         st.session_state.labs_in_val = parsed.get("labs", "")
+
+                        # Sync Widgets to ensure UI updates
+                        st.session_state.widget_paste_note_struct = st.session_state.note_in_val
+                        st.session_state.widget_paste_meds = st.session_state.meds_in_val
+                        st.session_state.widget_paste_labs = st.session_state.labs_in_val
 
                         # Set a flag to show the AI badge
                         st.session_state.voice_parsed_success = True

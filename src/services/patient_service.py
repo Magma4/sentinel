@@ -170,16 +170,20 @@ class PatientService:
                 max_sev = "Low"
                 for f in flags:
                     sev = f.get("severity", "LOW").upper()
-                    if sev == "HIGH":
+                    # Handle "SafetySeverity.HIGH" or "HIGH"
+                    if "HIGH" in sev:
                         max_sev = "High"
                         break
-                    elif sev == "MEDIUM" and max_sev != "High":
+                    elif "MEDIUM" in sev and max_sev != "High":
                         max_sev = "Medium"
                 stats["risk_distribution"][max_sev] += 1
 
             # 2. Top Flags
             for f in flags:
                 cat = f.get("category", "OTHER")
+                # Handle "SafetyCategory.NAME"
+                if "." in cat:
+                    cat = cat.split(".")[-1]
                 stats["top_flags"][cat] = stats["top_flags"].get(cat, 0) + 1
 
             # 3. Conditions (from Extract)

@@ -1,0 +1,32 @@
+{
+  "id": "77fa9346",
+  "patient_id": "70e68760",
+  "timestamp": "2026-02-09T18:50:27.001439",
+  "inputs": {
+    "note": "Patient: Dorothy Kwame\nDOB: 04/18/1946 | MRN: MRN-2201\n\nSubjective: 80F presents with right knee pain and swelling x1 week. Reports stiffness worse in the mornings. No trauma history.\n\nPMH: Atrial fibrillation (on anticoagulation), Osteoarthritis, Depression (on SSRI), Hypertension\nAllergies: None known\n\nObjective:\n  Vitals: BP 148/88, HR 78 (irregular), Temp 36.8\u00b0C\n  Right knee: Mild effusion, crepitus, ROM limited by pain\n  No erythema or warmth suggesting septic joint\n\nAssessment: Osteoarthritis flare, right knee\n\nPlan: Start Ibuprofen 600mg TID for 2 weeks for pain relief. Continue Coumadin and other home medications. Follow-up in 2 weeks, consider ortho referral.",
+    "meds": "Coumadin 5mg PO Daily\nIbuprofen 600mg PO TID (NEW)\nZoloft 100mg PO Daily\nLisinopril 10mg PO Daily\nOmeprazole 20mg PO Daily",
+    "labs": "INR: 2.8 (therapeutic range 2.0-3.0)\nCreatinine: 1.2 mg/dL\nCBC: WNL\nESR: 32 mm/hr (H)\nCRP: 12 mg/L (H)"
+  },
+  "report": {
+    "summary": "Detected 1 safety concern: Medication-Medication conflict.",
+    "flags": [
+      {
+        "category": "SafetyCategory.MEDICATION_INTERACTION",
+        "severity": "SafetySeverity.HIGH",
+        "explanation": "Interaction: Warfarin + Ibuprofen \u2014 Combined anticoagulant + NSAID therapy significantly increases the risk of gastrointestinal and intracranial bleeding."
+      },
+      {
+        "category": "SafetyCategory.MEDICATION_INTERACTION",
+        "severity": "SafetySeverity.MEDIUM",
+        "explanation": "Interaction: Warfarin + Sertraline \u2014 SSRIs inhibit platelet aggregation, potentially increasing bleeding risk when combined with anticoagulants."
+      },
+      {
+        "category": "SafetyCategory.OTHER",
+        "severity": "SafetySeverity.MEDIUM",
+        "explanation": "The patient is prescribed Ibuprofen (NSAID) and Coumadin (anticoagulant). NSAIDs can increase the risk of bleeding in patients taking anticoagulants, potentially leading to serious complications."
+      }
+    ],
+    "confidence": 0.8
+  },
+  "audio_file": null
+}

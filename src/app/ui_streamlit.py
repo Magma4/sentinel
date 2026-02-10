@@ -323,7 +323,7 @@ with st.sidebar:
     <div class="sidebar-brand">
         <h1>🛡️ SentinelMD</h1>
         <p style="color: var(--text-muted); margin: 2px 0 6px 0; font-size: 0.9rem;">Clinical Safety Copilot</p>
-        <span class="version">EDGE AI • v0.9</span>
+        <span class="version">EDGE AI • v1.0</span>
     </div>
     """, unsafe_allow_html=True)
     st.markdown("---")

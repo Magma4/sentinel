@@ -1168,26 +1168,34 @@ with tab_safety:
                 with st.status("🛡️ Running Safety Review…", expanded=True) as status:
                     t0 = time.time()
 
-                    status.write("✅ Validating clinical inputs…")
+                    st_val = status.empty()
+                    st_val.write("⏳ Validating clinical inputs...")
                     note_text = standardized_inputs["note_text"]
                     labs_text = standardized_inputs["labs_text"]
                     meds_text = standardized_inputs["meds_text"]
+                    time.sleep(0.5) # Slight pause for UX
+                    st_val.write("✅ Validating clinical inputs... Done")
 
                     # DDI pre-scan (deterministic, instant)
+                    st_ddi = status.empty()
+                    st_ddi.write("⏳ Running DDI pre-scan...")
                     from src.core.ddi_checker import extract_medications, check_interactions
                     parsed_meds = extract_medications(meds_text)
                     ddi_hits = check_interactions(parsed_meds)
                     n_meds = len(parsed_meds)
                     n_ddi = len(ddi_hits)
-                    if n_ddi > 0:
-                        status.write(f"💊 DDI pre-scan: {n_meds} medications → **{n_ddi} interaction{'s' if n_ddi != 1 else ''} detected**")
-                    else:
-                        status.write(f"💊 DDI pre-scan: {n_meds} medications — no known interactions")
 
-                    status.write("🧠 Analyzing with MedGemma 4B (on-device)…")
+                    if n_ddi > 0:
+                        st_ddi.write(f"💊 DDI pre-scan: {n_meds} medications → **{n_ddi} interaction{'s' if n_ddi != 1 else ''} detected**")
+                    else:
+                        st_ddi.write(f"💊 DDI pre-scan: {n_meds} medications — no known interactions")
+
+                    st_llm = status.empty()
+                    st_llm.write("🧠 Analyzing with MedGemma 4B (on-device)...")
                     report = st.session_state.audit_service.run_safety_review(
                         note_text, labs_text, meds_text
                     )
+                    st_llm.write("🧠 Analysis complete.")
 
                     elapsed = time.time() - t0
                     status.write(f"📋 Report generated — {elapsed:.1f}s")

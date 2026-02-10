@@ -534,7 +534,7 @@ with st.sidebar:
     st.success("✅ System Ready (Secure)")
 
 # Main Layout
-st.markdown('<div class="advisory-banner">⚠️ <strong>ADVISORY ONLY</strong> — Identifying safety risks. Not a substitute for clinical judgment.</div>', unsafe_allow_html=True)
+st.markdown('<div class="advisory-banner">⚠️ <strong>ADVISORY ONLY</strong> : Identifying safety risks. Not a substitute for clinical judgment.</div>', unsafe_allow_html=True)
 
 # Global Inputs
 record: Optional[PatientRecord] = None

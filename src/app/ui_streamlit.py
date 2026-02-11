@@ -1312,7 +1312,7 @@ with tab_safety:
                 if display_cat == "Other":
                     display_cat = "General Safety Constraint"
                 elif display_cat == "Medication Interaction":
-                    display_cat = "Medication-Allergy Conflict"
+                    display_cat = "Drug-Drug Interaction"
 
                 with st.container():
                     # Layout: Explanation (Let) | Buttons (Right)

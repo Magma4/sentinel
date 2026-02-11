@@ -1,0 +1,27 @@
+{
+  "id": "f966166c",
+  "patient_id": "f7c222a3",
+  "timestamp": "2026-02-09T23:38:42.248174",
+  "inputs": {
+    "note": "Patient: John Doe\nDOB: 01/01/1980\n\nSubjective: Pt presents with fatigue.\nAssessment: Hyperkalemia suspected.\nPlan: Check labs, review meds.",
+    "meds": "Lisinopril 10mg PO Daily\nSpironolactone 25mg PO Daily\nAspirin 81mg PO Daily",
+    "labs": "--- Source: lab_scan.png ---\nLabeport- SCAN\n\nPotassium:6.2 mmol/L\nCreatinine: 15 maid\n\n--- Source: labs.csv ---\nPotassium: 6.2 mmol/L (2024-01-15)\nCreatinine: 1.5 mg/dL (2024-01-15)\neGFR: 45.0 mL/min (2024-01-15)"
+  },
+  "report": {
+    "summary": "Detected 1 safety concern: Medication-Medication conflict.",
+    "flags": [
+      {
+        "category": "SafetyCategory.MEDICATION_INTERACTION",
+        "severity": "SafetySeverity.MEDIUM",
+        "explanation": "Interaction: Lisinopril + Spironolactone \u2014 Both ACE inhibitors and potassium-sparing diuretics increase serum potassium, risking hyperkalemia (cardiac arrhythmia)."
+      },
+      {
+        "category": "SafetyCategory.OTHER",
+        "severity": "SafetySeverity.MEDIUM",
+        "explanation": "The patient is taking Lisinopril (an ACE inhibitor) and Spironolactone (a potassium-sparing diuretic). Both medications can increase potassium levels, potentially leading to hyperkalemia. The patient's potassium level is 6.2 mmol/L, which is elevated. This presents a potential medication-medication conflict that warrants clinical review."
+      }
+    ],
+    "confidence": 0.8
+  },
+  "audio_file": null
+}

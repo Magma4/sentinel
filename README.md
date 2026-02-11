@@ -4,37 +4,77 @@
 
 > *"Turning Chaos into Safety."*
 
-SentinelMD is an offline-first "Edge AI" application that acts as a second pair of eyes for clinicians. It automatically cross-references clinical notes, scanned medication lists, and lab results to detect life-threatening errors like drug-drug interactions and missing workflow steps - all without requiring an internet connection.
+SentinelMD is an offline-first "Edge AI" copilot for clinicians. It acts as a second pair of eyes, automatically cross-referencing clinical notes, medication lists, and lab results to detect life-threatening errors—like drug interactions and allergy conflicts—without a single byte of data leaving the device.
 
 ---
 
-## The Problem
-In high-pressure clinical environments - especially in resource-constrained settings like rural areas - doctors are overwhelmed. Medical records are often fractured across handwritten scripts, PDFs, and printed lab results. In this chaos, subtle connections (like a patient on ACE inhibitors showing signs of hyperkalemia) can easily slip through the cracks. Cloud-based AI tools are often unusable due to poor connectivity or strict privacy regulations.
+## 🚀 Key Features
 
-## The Solution
-SentinelMD serves as an intelligent, local auditor.
-*   **Offline Inference**: Powered by **MedGemma** running locally via Ollama.
-*   **Zero Data Exfiltration**: Patient data never leaves the device.
-*   **Multimodal**: Reads PDFs, Images (via OCR), and structured text.
+### 1. **Real-Time Safety Audit** 🧠
+Powered by **MedGemma-2-9b (Quantized)** running locally.
+*   **Instant Risk Analysis:** Flags drug-drug interactions, drug-lab conflicts, and allergy mismatches.
+*   **Evidence Grounding:** Every alert is backed by "Evidence Quotes" from the patient record to prevent hallucinations.
+*   **Sequential Progress:** Live feedback on validation, DDI checks, and LLM analysis.
 
-## Key Features
-1.  **Automated Safety Review**: Instantly flags HIGH/MEDIUM risks (e.g., Allergies, Med-Lab Conflicts).
-2.  **Strict Grounding**: Every flag provides "Evidence Quotes" from the source document to prevent hallucinations.
-3.  **Interactive Safety Assistant**: A Chatbot that lets clinicians ask follow-up questions.
-4.  **Voice Dictation 🎙️**: Recording clinical notes with **Whisper Large-v3** (Offline), accelerated by **Apple MLX** for instant, high-accuracy transcription.
+### 2. **Voice-to-Chart Dictation** 🎙️
+*   **Offline Speech Recognition:** Uses **Whisper Large-v3** (via Apple MLX or Faster-Whisper) to transcribe clinical dictation instantly.
+*   **Auto-Structuring:** Automatically extracts and structures unstructured voice notes into **Clinical Note**, **Medications**, and **Labs** fields.
+
+### 3. **Population Health Dashboard** 📊
+*   **Clinic-Wide Intelligence:** Aggregates risk data across all patient records.
+*   **Risk Stratification:** Visualizes high-risk patients and common safety concerns (e.g., "Hyperkalemia Clusters").
+*   **Offline Analytics:** All dashboards are generated locally from file-system data.
+
+### 4. **Multimodal Ingestion** 📄
+*   **Universal Upload:** Drag & Drop PDFs, Images (Scanned Labs), or Text files.
+*   **On-Device OCR:** Digitizes paper records instantly using Tesseract.
 
 ---
 
-## Getting Started
+## 🏗️ Architecture
+
+SentinelMD follows a **Local-First, Service-Oriented Architecture**:
+
+```mermaid
+graph TD
+    User([Clinician]) <-->|Interacts| UI[Streamlit Frontend]
+
+    subgraph "Application Layer (Python)"
+        UI -->|State Management| PatientService[Patient Service]
+        UI -->|Transcription| FactExtractor[Fact Extractor]
+        UI -->|Safety Checks| AuditService[Audit Service]
+    end
+
+    subgraph "Local Intelligence (Edge)"
+        FactExtractor -->|Table Parsing| Tesseract[OCR Engine]
+        FactExtractor -->|Speech-to-Text| Whisper[Whisper Model]
+
+        AuditService -->|Prompting| Ollama[Ollama Server]
+        Ollama -.->|Inference| MedGemma[MedGemma 4B]
+    end
+
+    subgraph "Data Layer (File System)"
+        PatientService <-->|Read/Write JSON| Storage[(Local Patient DB)]
+        Storage -->|Aggregated Stats| PopHealth[Population Dashboard]
+    end
+```
+
+*   **Frontend**: Streamlit
+*   **Core Logic**: Python Services (`PatientService`, `AuditService`, `FactExtractor`)
+*   **Inference**: Ollama (Client-Server)
+*   **Models**: MedGemma (Reasoning), Whisper (Audio)
+*   **Storage**: JSON-based local file system (No SQL database required)
+
+---
+
+## 🛠️ Getting Started
 
 ### Prerequisites
 1.  **Python 3.10+**
 2.  **Ollama**: Install from [ollama.com](https://ollama.com).
-3.  **Tesseract OCR**: Required for image analysis (e.g., `brew install tesseract` on Mac or `apt-get install tesseract-ocr` on Linux).
-4.  **MedGemma Model**: Pull the model:
-    ```bash
-    ollama pull amsaravi/medgemma-4b-it:q6
-    ```
+3.  **Tesseract OCR**:
+    *   Mac: `brew install tesseract`
+    *   Linux: `sudo apt-get install tesseract-ocr`
 
 ### Installation
 1.  **Clone the repo**:
@@ -43,58 +83,25 @@ SentinelMD serves as an intelligent, local auditor.
     cd sentinel
     ```
 
-2.  **Set up environment**:
+2.  **Install Dependencies**:
     ```bash
     python -m venv .venv
     source .venv/bin/activate
     pip install -r requirements.txt
     ```
 
-3.  **Run the App**:
+3.  **Pull the Model**:
+    ```bash
+    ollama pull amsaravi/medgemma-4b-it:q6
+    ```
+
+4.  **Run the App**:
     ```bash
     streamlit run src/app/ui_streamlit.py
     ```
 
-### Remote / Cloud Deployment
-To deploy the frontend to Streamlit Cloud while keeping the model local (for security or hardware reasons), use **ngrok**.
-See full instructions in [DEPLOYMENT.md](DEPLOYMENT.md).
-
 ---
 
-## Architecture
-
-```mermaid
-graph TD
-    User([Clinician]) <-->|Interacts| UI[Streamlit Dashboard]
-
-    subgraph "Edge Device (Offline)"
-        direction TB
-
-        %% Inputs
-        UI -->|Voice Input| Mic[Microphone]
-        Mic -->|Audio| Whisper["Whisper Large-v3 (MLX)"]
-        Whisper -->|Transcribed Text| Context[Unified Patient Context]
-
-        UI -->|Uploads: PDF/Images| Ingest[Input Pipeline]
-        Ingest -->|OCR & Parsing| Context
-
-        Context -->|Context Window| Logic[Safety Auditor]
-
-        subgraph "Local Inference Engine"
-            Logic <-->|Prompt| Ollama[Ollama Server]
-            Ollama -.->|Weights| Model[MedGemma 4B]
-            Whisper -.->|Weights| WModel[Apple MLX Neural Engine]
-        end
-
-        Logic -->|JSON Report| UI
-    end
-```
-
-*   **Frontend**: Streamlit (Python)
-*   **Inference**: Ollama (Local)
-*   **Model**: MedGemma (4B Quantized)
-*   **Speech**: OpenAI Whisper (Large-v3 via Apple MLX)
-*   **OCR**: Tesseract & PyPDF
-
-## Disclaimer
-**SentinelMD is a safety checking tool, NOT a diagnostic device.** It does not recommend treatments or diagnoses. It is designed to catch workflow errors and documentation inconsistencies. User judgment is always required.
+## ⚠️ Disclaimer
+**SentinelMD is a clinical decision support tool, NOT a diagnostic device.**
+It is designed to identify potential documentation errors and safety risks for human review. It does not replace professional medical judgment.

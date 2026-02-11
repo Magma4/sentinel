@@ -39,31 +39,38 @@ SentinelMD follows a **Local-First, Service-Oriented Architecture**:
 graph TD
     User([Clinician]) <-->|Interacts| UI[Streamlit Frontend]
 
-    subgraph "Application Layer (Python)"
-        UI -->|State Management| PatientService[Patient Service]
-        UI -->|Transcription| FactExtractor[Fact Extractor]
-        UI -->|Safety Checks| AuditService[Audit Service]
+    subgraph "Application Layer"
+        UI -->|File Upload| InputLoader[Input Loader]
+        UI -->|Audio| TranscriptionService[Transcription Service]
+        TranscriptionService -->|Raw Text| FactExtractor[Fact Extractor]
+        UI -->|Safety Check| AuditService[Audit Service]
+        UI -->|CRUD & Stats| PatientService[Patient Service]
     end
 
-    subgraph "Local Intelligence (Edge)"
-        FactExtractor -->|Table Parsing| Tesseract[OCR Engine]
-        FactExtractor -->|Speech-to-Text| Whisper[Whisper Model]
-
-        AuditService -->|Prompting| Ollama[Ollama Server]
-        Ollama -.->|Inference| MedGemma[MedGemma 4B]
+    subgraph "Local Intelligence - Edge"
+        InputLoader -->|PDF/Image| OCR[Tesseract OCR + PyPDF]
+        TranscriptionService -->|Speech-to-Text| Whisper["Whisper - MLX / Faster-Whisper"]
+        FactExtractor -->|Structuring| Ollama[Ollama Server]
+        AuditService -->|Clinical Reasoning| Ollama
+        AuditService -->|Deterministic Check| DDIChecker[DDI Checker]
+        Ollama -.->|Weights| MedGemma[MedGemma 4B]
     end
 
-    subgraph "Data Layer (File System)"
+    subgraph "Data Layer - File System"
         PatientService <-->|Read/Write JSON| Storage[(Local Patient DB)]
-        Storage -->|Aggregated Stats| PopHealth[Population Dashboard]
+        Storage -->|Aggregation| PopHealth[Population Dashboard]
     end
 ```
 
-*   **Frontend**: Streamlit
-*   **Core Logic**: Python Services (`PatientService`, `AuditService`, `FactExtractor`)
-*   **Inference**: Ollama (Client-Server)
-*   **Models**: MedGemma (Reasoning), Whisper (Audio)
-*   **Storage**: JSON-based local file system (No SQL database required)
+| Component | Role | Module |
+| :--- | :--- | :--- |
+| **Input Loader** | Ingests PDFs, Images (OCR), CSVs, Text files | `src/core/input_loader.py` |
+| **Transcription Service** | Offline speech-to-text (Whisper Large-v3) | `src/services/transcription_service.py` |
+| **Fact Extractor** | LLM-powered structuring of raw text into Meds/Labs/Notes | `src/core/extract.py` |
+| **Audit Service** | Orchestrates safety review (DDI + LLM analysis) | `src/services/audit_service.py` |
+| **DDI Checker** | Deterministic drug-drug interaction database | `src/core/ddi_checker.py` |
+| **Patient Service** | Patient CRUD, encounter history, population stats | `src/services/patient_service.py` |
+| **Ollama / MedGemma** | Local LLM inference (quantized, on-device) | `src/core/llm_client.py` |
 
 ---
 

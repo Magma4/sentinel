@@ -20,18 +20,18 @@ Powered by **MedGemma-2-9b (Quantized)** running locally.
 *   **Offline Speech Recognition:** Uses **Whisper Large-v3** (via Apple MLX or Faster-Whisper) to transcribe clinical dictation instantly.
 *   **Auto-Structuring:** Automatically extracts and structures unstructured voice notes into **Clinical Note**, **Medications**, and **Labs** fields.
 
-### 3. **Population Health Dashboard** 📊
+### 3. **Population Health Dashboard**
 *   **Clinic-Wide Intelligence:** Aggregates risk data across all patient records.
 *   **Risk Stratification:** Visualizes high-risk patients and common safety concerns (e.g., "Hyperkalemia Clusters").
 *   **Offline Analytics:** All dashboards are generated locally from file-system data.
 
-### 4. **Multimodal Ingestion** 📄
+### 4. **Multimodal Ingestion**
 *   **Universal Upload:** Drag & Drop PDFs, Images (Scanned Labs), or Text files.
 *   **On-Device OCR:** Digitizes paper records instantly using Tesseract.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 SentinelMD follows a **Local-First, Service-Oriented Architecture**:
 

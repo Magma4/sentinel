@@ -10,13 +10,13 @@ SentinelMD is an offline-first "Edge AI" copilot for clinicians. It acts as a se
 
 ## 🚀 Key Features
 
-### 1. **Real-Time Safety Audit** 🧠
+### 1. **Real-Time Safety Audit**
 Powered by **MedGemma-2-9b (Quantized)** running locally.
 *   **Instant Risk Analysis:** Flags drug-drug interactions, drug-lab conflicts, and allergy mismatches.
 *   **Evidence Grounding:** Every alert is backed by "Evidence Quotes" from the patient record to prevent hallucinations.
 *   **Sequential Progress:** Live feedback on validation, DDI checks, and LLM analysis.
 
-### 2. **Voice-to-Chart Dictation** 🎙️
+### 2. **Voice-to-Chart Dictation**
 *   **Offline Speech Recognition:** Uses **Whisper Large-v3** (via Apple MLX or Faster-Whisper) to transcribe clinical dictation instantly.
 *   **Auto-Structuring:** Automatically extracts and structures unstructured voice notes into **Clinical Note**, **Medications**, and **Labs** fields.
 

@@ -11,7 +11,7 @@ SentinelMD is an offline-first "Edge AI" copilot for clinicians. It acts as a se
 ## 🚀 Key Features
 
 ### 1. **Real-Time Safety Audit**
-Powered by **MedGemma-2-9b (Quantized)** running locally.
+Powered by **MedGemma-2-4b (Quantized)** running locally.
 *   **Instant Risk Analysis:** Flags drug-drug interactions, drug-lab conflicts, and allergy mismatches.
 *   **Evidence Grounding:** Every alert is backed by "Evidence Quotes" from the patient record to prevent hallucinations.
 *   **Sequential Progress:** Live feedback on validation, DDI checks, and LLM analysis.

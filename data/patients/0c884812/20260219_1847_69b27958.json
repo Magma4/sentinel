@@ -1,0 +1,22 @@
+{
+  "id": "69b27958",
+  "patient_id": "0c884812",
+  "timestamp": "2026-02-19T18:47:19.461379",
+  "inputs": {
+    "note": "Database Schema \nEthan Ettinger  \nRaymond Frimpong Amoateng \n \n\u25ca USERS \n\u2022 [user_id] \no firstName : (string) \no lastName : (string) \no email : (string) \no favoriteTeamId : (string) \u2014 reference to TEAMS \no createdAt : (timestamp) \no Preferences (SUB COLLECTION) \n\u25aa darkMode : Boolean \n\u25aa notifications : Boolean \n\u25ca PLAYERS \n\u2022 [player_id] \no firstName : (string) \no lastName : (string) \no teamId : (string) \u2014 reference to TEAMS \no position : (string) e.g. \"SS\", \"P\", \"OF\" \no jerseyNumber : Number \no nationality : (string) \no dateOfBirth : (date) \no height : (string) \no weight : Number \no bats : (string) \"L\" / \"R\" / \"S\" \no throws : (string) \"L\" / \"R\" \no photoUrl : (string) \no Stats (SUB COLLECTION) \n\u25aa [season_year] \n\u2022 battingAvg : Number \n\u2022 homeRuns : Number \n\u2022 rbi : Number \n\u2022 ops : Number \n\u2022 xwOBA : Number \n\u2022 exitVelocity : Number \n\u2022 launchAngle : Number \n\u2022 strikeouts : Number \n\u2022 walks : Number \n\u2022 stolenBases : Number \n\u25ca TEAMS \n\u2022 [team_id] \no name : (string) \no abbreviation : (string) e.g. \"NYY\" \no league : (string) \"AL\" / \"NL\" \no division : (string) \"East\" / \"Central\" / \"West\" \no logoUrl : (string) \no ballparkId : (string) \u2014 reference to BALLPARKS \n\u25ca BALLPARKS \n\u2022 [ballpark_id] \no stadiumName : (string) \no location : (Latitude/Longitude) \no capacity : Number \no Dimensions (SUB COLLECTION) \n\u25aa Fences \n\u2022 leftField : Number \n\u2022 centerField : Number \n\u2022 rightField : Number \n\u25ca GAMES \n\u2022 [game_id] \no homeTeamId : (string) \u2014 reference to TEAMS \no awayTeamId : (string) \u2014 reference to TEAMS \no homeScore : Number \no awayScore : Number \no inning : Number \no inningHalf : (string) \"top\" / \"bottom\" \no outs : Number \no status : (string) \"scheduled\" / \"live\" / \"final\" \no startTime : (timestamp) \no ballparkId : (string) \u2014 reference to BALLPARKS \no Play-by-Play (SUB COLLECTION) \n\u25aa [play_id] \n\u2022 inning : Number \n\u2022 inningHalf : (string) \n\u2022 description : (string) e.g. \"A. Judge walks\" \n\u2022 timestamp : (timestamp) \n\u25ca COMPARISONS (SUB COLLECTION of USERS) \n\u2022 [comparison_id] \no playerAId : (string) \u2014 reference to PLAYERS \no playerBId : (string) \u2014 reference to PLAYERS \no category : (string) \"batting\" / \"pitching\" / \"fielding\" \no createdAt : (timestamp)",
+    "meds": "[Warning: No text extracted from PDF. It might be an image-only scan or encrypted.]",
+    "labs": "[Warning: No text extracted from PDF. It might be an image-only scan or encrypted.]"
+  },
+  "report": {
+    "summary": "Detected 1 safety concern: Temporal Contradiction.",
+    "flags": [
+      {
+        "category": "SafetyCategory.OTHER",
+        "severity": "SafetySeverity.MEDIUM",
+        "explanation": "The patient's date of birth is listed twice in the note. This may indicate a data entry error or a need for clarification."
+      }
+    ],
+    "confidence": 0.8
+  },
+  "audio_file": null
+}

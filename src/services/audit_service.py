@@ -127,11 +127,19 @@ Labs:
             ddi_hits = self.run_ddi_scan(meds_text)
             ddi_flags = self._ddi_to_flags(ddi_hits)
 
+            # Sanitize patient_demographics: LLM may return None values
+            # which violate Pydantic's Dict[str, str] constraint
+            raw_demographics = engine_output.get("patient_demographics", None)
+            if isinstance(raw_demographics, dict):
+                raw_demographics = {k: v for k, v in raw_demographics.items() if isinstance(v, str)}
+                if not raw_demographics:
+                    raw_demographics = None
+
             report = AuditReport(
                 summary=engine_output.get("summary", "No summary provided."),
                 flags=ddi_flags + flags,  # DDI flags first, then LLM flags
                 missing_info_questions=engine_output.get("missing_info_questions", []),
-                patient_demographics=engine_output.get("patient_demographics", None),
+                patient_demographics=raw_demographics,
                 confidence_score=engine_output.get("confidence_score", 0.8),
                 metadata={
                     "engine_duration": time.time() - t_start,

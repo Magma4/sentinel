@@ -1,0 +1,22 @@
+{
+  "id": "4a297ecd",
+  "patient_id": "0c884812",
+  "timestamp": "2026-02-19T18:42:04.738069",
+  "inputs": {
+    "note": "Patient: Maria Santos\nDOB: 03/15/1981 | MRN: MRN-1001\n\nSubjective: 45F presents with high fever (38.5\u00b0C) and severe sore throat x3 days. Difficulty swallowing. No cough or rhinorrhea.\n\nPMH: Hypertension (well-controlled on Lisinopril)\nAllergies: PENICILLIN (anaphylaxis), Peanuts\n\nObjective:\n  Vitals: BP 140/90, HR 88, Temp 38.5\u00b0C, SpO2 98%\n  HEENT: Oropharynx erythematous, tonsillar exudates bilateral\n  Neck: Tender anterior cervical lymphadenopathy\n\nAssessment: Strep Pharyngitis (rapid strep positive)\n\nPlan: Start Amoxicillin 500mg TID x 10 days. Follow up in 3 days if no improvement.",
+    "meds": "Lisinopril 10mg PO Daily\nAmoxicillin 500mg PO TID (NEW)",
+    "labs": "Rapid Strep Test: POSITIVE\nWBC: 14.2 K/uL (H)\nCRP: 45 mg/L (H)"
+  },
+  "report": {
+    "summary": "Detected 1 safety concern: Medication-Allergy conflict.",
+    "flags": [
+      {
+        "category": "SafetyCategory.ALLERGY",
+        "severity": "SafetySeverity.HIGH",
+        "explanation": "Patient is prescribed Amoxicillin, which is a penicillin-derived antibiotic. The patient has a documented Penicillin allergy (anaphylaxis) in their chart. This presents a potential medication-allergy conflict that warrants clinical review."
+      }
+    ],
+    "confidence": 0.8
+  },
+  "audio_file": null
+}

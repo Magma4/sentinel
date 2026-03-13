@@ -1,0 +1,22 @@
+{
+  "id": "f91ddb2f",
+  "patient_id": "2ec2a458",
+  "timestamp": "2026-02-24T16:25:08.173348",
+  "inputs": {
+    "note": "45-year-old male presents with weakness and dizziness. History of CKD and hypertension. Currently on Lisinopril 10 mg and Spinal Lactone 25 mg daily. Lab show potassium of 6.5, creatine 2.1.",
+    "meds": "Lisinopril 10 mg, Spinal Lactone 25 mg",
+    "labs": "Potassium 6.5, Creatine 2.1"
+  },
+  "report": {
+    "summary": "Detected 1 safety concern: Medication-Lab conflict.",
+    "flags": [
+      {
+        "category": "SafetyCategory.OTHER",
+        "severity": "SafetySeverity.HIGH",
+        "explanation": "Patient is prescribed Lisinopril (an ACE Inhibitor) while documented with Hyperkalemia (Potassium 6.5). ACE inhibitors can further increase potassium levels, posing a risk of arrhythmia."
+      }
+    ],
+    "confidence": 0.8
+  },
+  "audio_file": null
+}

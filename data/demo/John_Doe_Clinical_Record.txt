@@ -1,0 +1,22 @@
+Patient Name: John Doe
+Date of Birth: 1979-03-15
+Visit Date: 2026-02-24
+
+CLINICAL NOTE:
+45-year-old male presents with progressive weakness and dizziness over the past 3 days.
+History of Stage 3 CKD and hypertension, diagnosed 2021.
+No recent medication changes. Denies chest pain, SOB, or syncope.
+BP 148/92, HR 78, temp 98.6F. Physical exam unremarkable except mild peripheral edema.
+Assessment: Weakness, likely metabolic. Plan: Check renal panel, adjust meds if needed.
+
+MEDICATIONS:
+Lisinopril 10mg daily
+Spironolactone 25mg daily
+Amlodipine 5mg daily
+
+LABS:
+Potassium: 6.2 mmol/L
+Creatinine: 2.1 mg/dL
+BUN: 32 mg/dL
+eGFR: 34 mL/min
+Sodium: 139 mmol/L
